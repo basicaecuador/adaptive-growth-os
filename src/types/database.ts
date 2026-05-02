@@ -74,6 +74,9 @@ export interface Database {
           name: string
           slug: string
           is_active: boolean
+          logo_url: string | null
+          font_url: string | null
+          primary_color: string | null
           voice: string | null
           tone: string | null
           target_audience: string | null
@@ -89,6 +92,9 @@ export interface Database {
           name: string
           slug: string
           is_active?: boolean
+          logo_url?: string | null
+          font_url?: string | null
+          primary_color?: string | null
           voice?: string | null
           tone?: string | null
           target_audience?: string | null
@@ -104,6 +110,9 @@ export interface Database {
           name?: string
           slug?: string
           is_active?: boolean
+          logo_url?: string | null
+          font_url?: string | null
+          primary_color?: string | null
           voice?: string | null
           tone?: string | null
           target_audience?: string | null
@@ -170,6 +179,7 @@ export interface Database {
           status: string
           body: string
           notes: string | null
+          image_url: string | null
           metadata: Json
           created_at: string
           updated_at: string
@@ -184,6 +194,7 @@ export interface Database {
           status?: string
           body: string
           notes?: string | null
+          image_url?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
@@ -198,6 +209,7 @@ export interface Database {
           status?: string
           body?: string
           notes?: string | null
+          image_url?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
