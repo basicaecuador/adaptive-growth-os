@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+
+export const maxDuration = 60
 import { getPlanWithItems, insertPlanItems } from '@/services/content-plans.service'
 import { getBrandWithSetup } from '@/services/brands.service'
 import { getAnthropicClient } from '@/lib/ai/client'

@@ -45,7 +45,7 @@ export function useCreateContentPlan(brandId: string) {
       })
       if (!res.ok) {
         const body = await res.json()
-        throw new Error(body.error || 'Error al crear plan')
+        throw new Error(body.error?.message || body.error || 'Error al crear plan')
       }
       const { data } = await res.json()
       return data as ContentPlan
@@ -65,7 +65,7 @@ export function useGeneratePlan(planId: string) {
       })
       if (!res.ok) {
         const body = await res.json()
-        throw new Error(body.error || 'Error al generar plan')
+        throw new Error(body.error?.message || body.error || 'Error al generar plan')
       }
       const { data } = await res.json()
       return data as ContentPlanItem[]
@@ -87,7 +87,7 @@ export function useUpdatePlanItem(planId: string) {
       })
       if (!res.ok) {
         const body = await res.json()
-        throw new Error(body.error || 'Error al actualizar')
+        throw new Error(body.error?.message || body.error || 'Error al actualizar')
       }
       const { data } = await res.json()
       return data as ContentPlanItem

@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useRef } from 'react'
+import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Sparkles, Check, X, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -116,6 +116,16 @@ export default function PlanDetailPage({ params }: Props) {
 
   const plan = data?.plan
   const items = data?.items ?? []
+  const autoTriggered = useRef(false)
+
+  useEffect(() => {
+    if (!isLoading && plan && items.length === 0 && !generating && !autoTriggered.current) {
+      autoTriggered.current = true
+      generate().catch(err => {
+        toast.error(err instanceof Error ? err.message : 'Error al generar plan')
+      })
+    }
+  }, [isLoading, plan, items.length, generating, generate])
 
   async function handleGenerate() {
     try {
