@@ -57,14 +57,46 @@ export type ContentPlatform =
   | 'linkedin'
   | 'tiktok'
 
+export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention'
+
+export type PlanItemStatus = 'draft' | 'approved' | 'rejected'
+
+export interface PlanProduct {
+  name: string
+  description: string
+  objective: string
+}
+
 export interface ContentPlan {
   id: string
   brandId: string
   month: number
   year: number
   status: 'draft' | 'active' | 'completed'
+  products: PlanProduct[]
+  context: string | null
   createdAt: Date
   updatedAt: Date
+}
+
+export interface ContentPlanItem {
+  id: string
+  planId: string
+  temporality: string | null
+  scheduledDate: string | null
+  funnelStage: FunnelStage
+  objective: string | null
+  idea: string | null
+  format: string | null
+  channel: string | null
+  kpi: string | null
+  benchmarkReference: string | null
+  mainMessage: string | null
+  cta: string | null
+  observations: string | null
+  status: PlanItemStatus
+  contentItemId: string | null
+  sortOrder: number
 }
 
 export interface ContentItem {

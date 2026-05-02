@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Megaphone, Plus, Settings2 } from 'lucide-react'
+import { Megaphone, Plus, Settings2, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrganizations } from '@/hooks/use-organizations'
@@ -78,11 +78,18 @@ export default function BrandsPage() {
                         <p className="text-xs text-muted-foreground">{brand.slug}</p>
                       </div>
                     </div>
-                    <Link href={`/brands/${brand.id}`}>
-                      <Button variant="ghost" size="icon" title="Configurar marca">
-                        <Settings2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </Link>
+                    <div className="flex gap-1">
+                      <Link href={`/brands/${brand.id}/plans`}>
+                        <Button variant="ghost" size="icon" title="Plan de contenidos">
+                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </Link>
+                      <Link href={`/brands/${brand.id}`}>
+                        <Button variant="ghost" size="icon" title="Configurar marca">
+                          <Settings2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}

@@ -138,6 +138,8 @@ export interface Database {
           month: number
           year: number
           status: string
+          products: Json
+          context: string | null
           created_at: string
           updated_at: string
         }
@@ -147,6 +149,8 @@ export interface Database {
           month: number
           year: number
           status?: string
+          products?: Json
+          context?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -156,6 +160,8 @@ export interface Database {
           month?: number
           year?: number
           status?: string
+          products?: Json
+          context?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -219,6 +225,79 @@ export interface Database {
             foreignKeyName: 'content_items_brand_id_fkey'
             columns: ['brand_id']
             referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      content_plan_items: {
+        Row: {
+          id: string
+          plan_id: string
+          temporality: string | null
+          scheduled_date: string | null
+          funnel_stage: string
+          objective: string | null
+          idea: string | null
+          format: string | null
+          channel: string | null
+          kpi: string | null
+          benchmark_reference: string | null
+          main_message: string | null
+          cta: string | null
+          observations: string | null
+          status: string
+          content_item_id: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          temporality?: string | null
+          scheduled_date?: string | null
+          funnel_stage?: string
+          objective?: string | null
+          idea?: string | null
+          format?: string | null
+          channel?: string | null
+          kpi?: string | null
+          benchmark_reference?: string | null
+          main_message?: string | null
+          cta?: string | null
+          observations?: string | null
+          status?: string
+          content_item_id?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          temporality?: string | null
+          scheduled_date?: string | null
+          funnel_stage?: string
+          objective?: string | null
+          idea?: string | null
+          format?: string | null
+          channel?: string | null
+          kpi?: string | null
+          benchmark_reference?: string | null
+          main_message?: string | null
+          cta?: string | null
+          observations?: string | null
+          status?: string
+          content_item_id?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_plan_items_plan_id_fkey'
+            columns: ['plan_id']
+            referencedRelation: 'content_plans'
             referencedColumns: ['id']
           },
         ]

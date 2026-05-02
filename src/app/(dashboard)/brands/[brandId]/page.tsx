@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { ArrowLeft, Plus, Type, X } from 'lucide-react'
+import { ArrowLeft, Plus, Type, X, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -158,9 +158,18 @@ export default function BrandSetupPage({ params }: Props) {
         </div>
       </div>
 
-      <p className="mb-8 text-sm text-muted-foreground">
-        Configura la identidad visual y de voz de esta marca.
-      </p>
+      <div className="mb-8 flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Configura la identidad visual y de voz de esta marca.
+        </p>
+        <Link
+          href={`/brands/${brandId}/plans`}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <CalendarDays className="h-4 w-4" />
+          Ver planes de contenido
+        </Link>
+      </div>
 
       <div className="space-y-6">
 
