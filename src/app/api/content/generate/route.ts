@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         quality: 'standard',
       })
 
-      const dalleUrl = imageRes.data[0]?.url
+      const dalleUrl = imageRes.data?.[0]?.url
       if (dalleUrl) {
         const baseBuffer = await fetchBuffer(dalleUrl)
 
