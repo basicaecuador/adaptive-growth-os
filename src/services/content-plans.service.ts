@@ -9,6 +9,10 @@ type PlanRow = {
   status: string
   products: unknown
   context: string | null
+  strategic_brief: string | null
+  channel_mix: string[]
+  funnel_focus: string
+  pieces_count: number
   created_at: string
   updated_at: string
 }
@@ -44,6 +48,10 @@ function toPlan(row: PlanRow): ContentPlan {
     status: row.status as ContentPlan['status'],
     products: (row.products as PlanProduct[]) ?? [],
     context: row.context,
+    strategicBrief: row.strategic_brief ?? null,
+    channelMix: row.channel_mix ?? [],
+    funnelFocus: row.funnel_focus ?? 'balanced',
+    piecesCount: row.pieces_count ?? 12,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   }
@@ -158,6 +166,34 @@ export async function insertPlanItems(
     .select()
   if (error) throw new Error(error.message)
   return (data ?? []).map(r => toPlanItem(r as PlanItemRow))
+}
+
+export async function updatePlan(
+  supabase: SupabaseClient,
+  planId: string,
+  patch: {
+    strategicBrief?: string | null
+    channelMix?: string[]
+    funnelFocus?: string
+    piecesCount?: number
+    status?: ContentPlan['status']
+  },
+): Promise<ContentPlan> {
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (patch.strategicBrief !== undefined) update.strategic_brief = patch.strategicBrief
+  if (patch.channelMix !== undefined) update.channel_mix = patch.channelMix
+  if (patch.funnelFocus !== undefined) update.funnel_focus = patch.funnelFocus
+  if (patch.piecesCount !== undefined) update.pieces_count = patch.piecesCount
+  if (patch.status !== undefined) update.status = patch.status
+
+  const { data, error } = await supabase
+    .from('content_plans')
+    .update(update)
+    .eq('id', planId)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return toPlan(data as PlanRow)
 }
 
 export async function updatePlanItem(

@@ -140,6 +140,10 @@ export interface Database {
           status: string
           products: Json
           context: string | null
+          strategic_brief: string | null
+          channel_mix: string[]
+          funnel_focus: string
+          pieces_count: number
           created_at: string
           updated_at: string
         }
@@ -151,6 +155,10 @@ export interface Database {
           status?: string
           products?: Json
           context?: string | null
+          strategic_brief?: string | null
+          channel_mix?: string[]
+          funnel_focus?: string
+          pieces_count?: number
           created_at?: string
           updated_at?: string
         }
@@ -162,6 +170,10 @@ export interface Database {
           status?: string
           products?: Json
           context?: string | null
+          strategic_brief?: string | null
+          channel_mix?: string[]
+          funnel_focus?: string
+          pieces_count?: number
           created_at?: string
           updated_at?: string
         }

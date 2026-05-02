@@ -66,17 +66,23 @@ ${productsText}
 
 ## FECHAS RELEVANTES EN ECUADOR — ${monthName}
 ${ecuadorDates}
+${plan.strategicBrief ? `
+## BRIEF ESTRATÉGICO APROBADO
+El equipo ha revisado y aprobado la siguiente estrategia. Úsala como base para generar el plan:
 
+${plan.strategicBrief}
+
+Respeta la distribución del funnel, los ejes temáticos y el mix de canales definidos en el brief.
+` : ''}
 ## INSTRUCCIONES
 Genera un plan de contenidos estratégico para este mes. El plan debe:
 
-1. Responder a un funnel claro con las etapas: awareness → consideration → conversion → retention
-2. Incluir SOLO los contenidos necesarios para que el funnel funcione (no saturar, máximo 12-16 piezas por mes)
-3. Conectar con fechas relevantes de Ecuador cuando sea natural y aporte valor a la marca
-4. Para contenido de Meta (Instagram/Facebook): especificar estructura con hook, zona segura, CTA visible, formato vertical, uso de sonido
-5. Definir KPI específico por pieza según su función en el funnel
-6. Distribuir los contenidos a lo largo del mes con temporalidad específica
-7. Incluir referencia benchmark (tipo de contenido, no marca específica) para orientar la producción
+1. Seguir el brief estratégico aprobado (distribución de funnel, ejes temáticos, canales)
+2. Para contenido de Meta (Instagram/Facebook): especificar hook, zona segura, CTA visible, formato vertical
+3. Definir KPI específico por pieza según su función en el funnel
+4. Distribuir los contenidos a lo largo del mes con temporalidad específica
+5. Incluir referencia benchmark (tipo de contenido, no marca específica) para orientar la producción
+6. Generar exactamente ${plan.piecesCount || 12} piezas de contenido
 
 Responde ÚNICAMENTE con un JSON válido, sin texto adicional, con este formato exacto:
 [

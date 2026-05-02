@@ -56,6 +56,50 @@ export function useCreateContentPlan(brandId: string) {
   })
 }
 
+export function useGenerateBrief(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { channelMix: string[]; funnelFocus: string; piecesCount: number }) => {
+      const res = await fetch(`/api/content-plans/${planId}/brief`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error?.message || body.error || 'Error al generar brief')
+      }
+      const { data } = await res.json()
+      return data as ContentPlan
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
+
+export function useUpdatePlan(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (patch: Partial<ContentPlan>) => {
+      const res = await fetch(`/api/content-plans/${planId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error?.message || body.error || 'Error al actualizar plan')
+      }
+      const { data } = await res.json()
+      return data as ContentPlan
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
+
 export function useGeneratePlan(planId: string) {
   const qc = useQueryClient()
   return useMutation({

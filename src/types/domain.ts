@@ -75,6 +75,10 @@ export interface ContentPlan {
   status: 'draft' | 'active' | 'completed'
   products: PlanProduct[]
   context: string | null
+  strategicBrief: string | null
+  channelMix: string[]
+  funnelFocus: string
+  piecesCount: number
   createdAt: Date
   updatedAt: Date
 }
