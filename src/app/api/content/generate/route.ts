@@ -1,32 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import type { Database } from '@/types/database'
 import { getAnthropicClient } from '@/lib/ai/client'
 import { getOpenAIClient } from '@/lib/ai/openai'
 import { createContentItem } from '@/services/content.service'
 import { errorResponse } from '@/lib/utils/errors'
+import { getServerUser } from '@/lib/supabase/server-client'
 import sharp from 'sharp'
-
-async function getUser() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(list) {
-          list.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        },
-      },
-    },
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
 
 async function fetchBuffer(url: string): Promise<Buffer> {
   const res = await fetch(url)
@@ -102,7 +82,7 @@ async function compositeImage(
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUser()
+    const user = await getServerUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { brandId, platform, type, topic } = await req.json()
