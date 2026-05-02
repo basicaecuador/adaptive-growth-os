@@ -106,8 +106,8 @@ Genera entre 10 y 16 piezas de contenido bien distribuidas a lo largo del mes.`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     })
 

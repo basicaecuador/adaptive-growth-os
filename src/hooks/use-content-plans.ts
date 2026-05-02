@@ -3,6 +3,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ContentPlan, ContentPlanItem, PlanProduct } from '@/types/domain'
 
+async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    return body.error?.message || body.error || fallback
+  } catch {
+    const text = await res.text().catch(() => '')
+    return text.slice(0, 200) || fallback
+  }
+}
+
 export function useContentPlans(brandId: string | null | undefined) {
   return useQuery({
     queryKey: ['content-plans', brandId],
@@ -43,10 +53,7 @@ export function useCreateContentPlan(brandId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brandId, ...input }),
       })
-      if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error?.message || body.error || 'Error al crear plan')
-      }
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al crear plan'))
       const { data } = await res.json()
       return data as ContentPlan
     },
@@ -65,10 +72,7 @@ export function useGenerateBrief(planId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       })
-      if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error?.message || body.error || 'Error al generar brief')
-      }
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar brief'))
       const { data } = await res.json()
       return data as ContentPlan
     },
@@ -87,10 +91,7 @@ export function useUpdatePlan(planId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
-      if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error?.message || body.error || 'Error al actualizar plan')
-      }
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al actualizar plan'))
       const { data } = await res.json()
       return data as ContentPlan
     },
@@ -107,10 +108,7 @@ export function useGeneratePlan(planId: string) {
       const res = await fetch(`/api/content-plans/${planId}/generate`, {
         method: 'POST',
       })
-      if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error?.message || body.error || 'Error al generar plan')
-      }
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar plan'))
       const { data } = await res.json()
       return data as ContentPlanItem[]
     },
@@ -129,10 +127,7 @@ export function useUpdatePlanItem(planId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
-      if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error?.message || body.error || 'Error al actualizar')
-      }
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al actualizar'))
       const { data } = await res.json()
       return data as ContentPlanItem
     },
