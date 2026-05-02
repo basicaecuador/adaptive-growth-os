@@ -7,6 +7,9 @@ type BrandDetail = {
   id: string
   name: string
   slug: string
+  logoUrl: string | null
+  fontUrl: string | null
+  primaryColor: string
 } & BrandSetup
 
 export function useBrandDetail(brandId: string | null | undefined) {
