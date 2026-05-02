@@ -108,14 +108,17 @@ Genera entre 10 y 16 piezas de contenido bien distribuidas a lo largo del mes.`
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 3000,
+      system: 'You are a JSON generator. Respond ONLY with a valid JSON array. No markdown, no explanation, no code blocks. Start your response with [ and end with ].',
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const raw = message.content[0].type === 'text' ? message.content[0].text : '[]'
-    const jsonMatch = raw.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) throw new Error('Claude no devolvió JSON válido')
+    const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
+    // Strip markdown code fences if model wrapped the output
+    const stripped = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
+    const jsonMatch = stripped.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) throw new Error(`Respuesta inválida del modelo: ${stripped.slice(0, 200)}`)
 
-    const generated = JSON.parse(jsonMatch[0]) as Array<{
+    const generated = JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1')) as Array<{
       temporality: string
       scheduled_date: string | null
       funnel_stage: string
