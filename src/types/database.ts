@@ -1,0 +1,351 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      organizations: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          plan: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          plan?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          plan?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      organization_members: {
+        Row: {
+          id: string
+          organization_id: string
+          user_id: string
+          role: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          user_id: string
+          role?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          user_id?: string
+          role?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_members_organization_id_fkey'
+            columns: ['organization_id']
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      brands: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          slug: string
+          is_active: boolean
+          voice: string | null
+          tone: string | null
+          target_audience: string | null
+          value_proposition: string | null
+          content_pillars: string[] | null
+          restrictions: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          slug: string
+          is_active?: boolean
+          voice?: string | null
+          tone?: string | null
+          target_audience?: string | null
+          value_proposition?: string | null
+          content_pillars?: string[] | null
+          restrictions?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          slug?: string
+          is_active?: boolean
+          voice?: string | null
+          tone?: string | null
+          target_audience?: string | null
+          value_proposition?: string | null
+          content_pillars?: string[] | null
+          restrictions?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'brands_organization_id_fkey'
+            columns: ['organization_id']
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      content_plans: {
+        Row: {
+          id: string
+          brand_id: string
+          month: number
+          year: number
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          month: number
+          year: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          month?: number
+          year?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_plans_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      content_items: {
+        Row: {
+          id: string
+          brand_id: string
+          plan_id: string | null
+          created_by: string
+          type: string
+          platform: string
+          status: string
+          body: string
+          notes: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          plan_id?: string | null
+          created_by: string
+          type: string
+          platform: string
+          status?: string
+          body: string
+          notes?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          plan_id?: string | null
+          created_by?: string
+          type?: string
+          platform?: string
+          status?: string
+          body?: string
+          notes?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_items_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      brand_rules: {
+        Row: {
+          id: string
+          brand_id: string
+          category: string
+          description: string
+          instruction: string
+          source: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          category: string
+          description: string
+          instruction: string
+          source?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          category?: string
+          description?: string
+          instruction?: string
+          source?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'brand_rules_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      approvals: {
+        Row: {
+          id: string
+          content_id: string
+          status: string
+          comment: string | null
+          reviewed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          content_id: string
+          status?: string
+          comment?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          content_id?: string
+          status?: string
+          comment?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'approvals_content_id_fkey'
+            columns: ['content_id']
+            referencedRelation: 'content_items'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      feedback: {
+        Row: {
+          id: string
+          content_id: string
+          brand_id: string
+          comment: string
+          type: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          content_id: string
+          brand_id: string
+          comment: string
+          type: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          content_id?: string
+          brand_id?: string
+          comment?: string
+          type?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'feedback_content_id_fkey'
+            columns: ['content_id']
+            referencedRelation: 'content_items'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'feedback_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
