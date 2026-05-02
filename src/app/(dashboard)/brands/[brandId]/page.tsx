@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { useBrandDetail, useUpdateBrandSetup } from '@/hooks/use-brand-setup'
+import { useBrandDetail, useUpdateBrandSetup, useInvalidateBrandDetail } from '@/hooks/use-brand-setup'
 import { toast } from 'sonner'
 
 interface Props {
@@ -20,6 +20,7 @@ export default function BrandSetupPage({ params }: Props) {
   const { brandId } = use(params)
   const { data: brand, isLoading } = useBrandDetail(brandId)
   const { mutateAsync, isPending } = useUpdateBrandSetup(brandId)
+  const invalidateBrand = useInvalidateBrandDetail(brandId)
 
   const [voice, setVoice] = useState('')
   const [tone, setTone] = useState('')
@@ -48,6 +49,7 @@ export default function BrandSetupPage({ params }: Props) {
     setRestrictions(brand.restrictions ?? [])
     setLogoUrl(brand.logoUrl ?? null)
     setFontUrl(brand.fontUrl ?? null)
+    setFontName(brand.fontUrl ? (brand.fontUrl.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '') : '')
     setPrimaryColor(brand.primaryColor ?? '#000000')
   }, [brand])
 
@@ -62,6 +64,7 @@ export default function BrandSetupPage({ params }: Props) {
       if (!res.ok) throw new Error('Error al subir logo')
       const { data } = await res.json()
       setLogoUrl(data.logoUrl)
+      invalidateBrand()
       toast.success('Logo actualizado')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error inesperado')
@@ -83,6 +86,7 @@ export default function BrandSetupPage({ params }: Props) {
       const { data } = await res.json()
       setFontUrl(data.fontUrl)
       setFontName(file.name.replace(/\.[^.]+$/, ''))
+      invalidateBrand()
       toast.success('Tipografía actualizada')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error inesperado')

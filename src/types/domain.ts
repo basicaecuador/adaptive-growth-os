@@ -70,7 +70,7 @@ export interface ContentPlan {
 export interface ContentItem {
   id: string
   brandId: string
-  planId: string
+  planId: string | null
   type: ContentType
   platform: ContentPlatform
   status: ContentStatus

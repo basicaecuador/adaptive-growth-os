@@ -46,3 +46,8 @@ export function useUpdateBrandSetup(brandId: string) {
     },
   })
 }
+
+export function useInvalidateBrandDetail(brandId: string) {
+  const qc = useQueryClient()
+  return () => qc.invalidateQueries({ queryKey: ['brand-detail', brandId] })
+}
