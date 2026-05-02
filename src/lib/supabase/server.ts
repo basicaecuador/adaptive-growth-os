@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
+import type { CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
+
+type CookieItem = { name: string; value: string; options: CookieOptions }
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -13,10 +16,11 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieItem[]) {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, options as any),
             )
           } catch {
             // Server Component — cookie writes are best-effort
