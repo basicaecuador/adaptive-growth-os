@@ -155,12 +155,15 @@ JSON — solo el array sin markdown:
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 5000,
+      max_tokens: 8000,
       system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
       messages: [{ role: 'user', content: prompt }],
     })
 
     const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
+    if (message.stop_reason === 'max_tokens') {
+      throw new Error(`La respuesta fue demasiado larga y se cortó. Intenta con menos productos (máximo 2) o un enfoque de funnel más simple.`)
+    }
     const stripped = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
     const jsonMatch = stripped.match(/\[[\s\S]*\]/)
     if (!jsonMatch) throw new Error(`Respuesta inválida del modelo: ${stripped.slice(0, 200)}`)
