@@ -48,19 +48,19 @@ export default function PlansPage({ params }: Props) {
   const [month, setMonth] = useState(defaults.month)
   const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
-  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '' }])
+  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '' }])
 
   function resetForm() {
     const d = getNextMonth()
     setMonth(d.month)
     setYear(d.year)
     setContext('')
-    setProducts([{ name: '', description: '', objective: '' }])
+    setProducts([{ name: '', description: '', objective: '', websiteUrl: '' }])
     setShowForm(false)
   }
 
   function addProduct() {
-    setProducts(p => [...p, { name: '', description: '', objective: '' }])
+    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '' }])
   }
 
   function removeProduct(i: number) {
@@ -170,6 +170,15 @@ export default function PlansPage({ params }: Props) {
                     onChange={e => updateProduct(i, 'description', e.target.value)}
                     rows={3}
                   />
+                  <div className="space-y-1">
+                    <Input
+                      type="url"
+                      placeholder="Página web del producto (opcional)"
+                      value={prod.websiteUrl ?? ''}
+                      onChange={e => updateProduct(i, 'websiteUrl', e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground px-0.5">Si tiene landing page o ficha comercial, agrégala para enriquecer el contenido</p>
+                  </div>
                   <select
                     value={prod.objective}
                     onChange={e => updateProduct(i, 'objective', e.target.value)}
@@ -257,8 +266,11 @@ export default function PlansPage({ params }: Props) {
               className="flex items-center justify-between rounded-xl border border-border bg-card p-4 hover:border-foreground/30 hover:shadow-sm transition-all"
             >
               <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted shrink-0">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-muted text-center">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground leading-none">
+                    {MONTH_NAMES[plan.month - 1].slice(0, 3)}
+                  </span>
+                  <span className="text-xl font-bold text-foreground leading-tight">{plan.year.toString().slice(2)}</span>
                 </div>
                 <div>
                   <p className="font-semibold text-card-foreground">
@@ -267,11 +279,18 @@ export default function PlansPage({ params }: Props) {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {plan.products.length} producto{plan.products.length !== 1 ? 's' : ''} · {plan.products.map(p => p.name).filter(Boolean).join(', ')}
                   </p>
+                  {plan.channelMix?.length > 0 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">{plan.channelMix.join(' · ')}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant={plan.status === 'active' ? 'default' : 'secondary'}>
-                  {plan.status === 'draft' ? 'Borrador' : plan.status === 'active' ? 'Activo' : 'Completado'}
+                <Badge variant={plan.status === 'active' ? 'default' : 'secondary'} className={
+                  plan.status === 'draft' && plan.strategicBrief ? 'bg-violet-100 text-violet-700 border-violet-200' : ''
+                }>
+                  {plan.status === 'draft' && !plan.strategicBrief ? 'Configurar' :
+                   plan.status === 'draft' ? 'En progreso' :
+                   plan.status === 'active' ? 'Activo' : 'Completado'}
                 </Badge>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>

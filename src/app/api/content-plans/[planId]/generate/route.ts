@@ -64,7 +64,7 @@ export async function POST(
     const totalPieces = numProducts * 7
 
     const productsDetail = products.map((p, i) =>
-      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}`
+      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
     ).join('\n')
 
     const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'

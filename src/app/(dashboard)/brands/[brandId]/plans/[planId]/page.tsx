@@ -278,9 +278,14 @@ export default function PlanDetailPage({ params }: Props) {
   const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
   const [funnelFocus, setFunnelFocus] = useState('balanced')
 
+  // Build flow state
+  const [isBuilding, setIsBuilding] = useState(false)
+  const [buildStep, setBuildStep] = useState<'brief' | 'content' | null>(null)
+
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefDraft, setBriefDraft] = useState('')
+  const [showBrief, setShowBrief] = useState(false)
 
   // Step 3 wizard state
   const [reviewItemId, setReviewItemId] = useState<string | null>(null)
@@ -295,6 +300,30 @@ export default function PlanDetailPage({ params }: Props) {
     )
   }
 
+  async function handleBuildPlan() {
+    if (channelMix.length === 0) {
+      toast.error('Selecciona al menos un canal')
+      return
+    }
+    const computedPieces = (plan?.products?.length ?? 1) * 7
+    setIsBuilding(true)
+    setBuildStep('brief')
+    try {
+      await generateBrief({ channelMix, funnelFocus, piecesCount: computedPieces })
+      setBuildStep('content')
+      setReviewItemId(null)
+      setSelectedIdeaType(null)
+      setRefinedIdea(null)
+      setRefineMode(false)
+      await generate()
+      toast.success('Plan listo — revisa y aprueba cada pieza')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al construir el plan')
+    } finally {
+      setIsBuilding(false)
+      setBuildStep(null)
+    }
+  }
 
   async function handleGenerateBrief() {
     if (channelMix.length === 0) {
@@ -464,6 +493,39 @@ export default function PlanDetailPage({ params }: Props) {
     </div>
   )
 
+  // ── BUILDING: combined brief + content loader ───────────────────
+  if (isBuilding) {
+    return (
+      <div className="p-8 max-w-xl">
+        {Header}
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-5">
+          <div className="h-12 w-12 rounded-full border-4 border-violet-100 border-t-violet-500 animate-spin" />
+          <div>
+            <p className="text-lg font-semibold text-foreground">
+              {buildStep === 'brief' ? 'Analizando la estrategia...' : 'Creando el contenido...'}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {buildStep === 'brief'
+                ? 'Claude está construyendo el brief estratégico del mes'
+                : 'Generando guiones, slides y copy listos para producción'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <div className={`flex items-center gap-1.5 ${buildStep === 'brief' ? 'text-violet-600 font-medium' : 'text-muted-foreground'}`}>
+              <div className={`h-2 w-2 rounded-full ${buildStep === 'brief' ? 'bg-violet-500 animate-pulse' : 'bg-green-500'}`} />
+              Estrategia
+            </div>
+            <div className="h-px w-8 bg-border" />
+            <div className={`flex items-center gap-1.5 ${buildStep === 'content' ? 'text-violet-600 font-medium' : 'text-muted-foreground/50'}`}>
+              <div className={`h-2 w-2 rounded-full ${buildStep === 'content' ? 'bg-violet-500 animate-pulse' : 'bg-muted-foreground/20'}`} />
+              Contenido
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // ── STEP 1: Define strategy ─────────────────────────────────────
   if (!plan?.strategicBrief) {
     const numProducts = plan?.products?.length ?? 1
@@ -571,13 +633,13 @@ export default function PlanDetailPage({ params }: Props) {
           </div>
 
           <Button
-            onClick={handleGenerateBrief}
-            disabled={generatingBrief || channelMix.length === 0}
+            onClick={handleBuildPlan}
+            disabled={isBuilding || channelMix.length === 0}
             className="w-full gap-2"
             size="lg"
           >
             <Sparkles className="h-4 w-4" />
-            {generatingBrief ? 'Generando brief estratégico...' : 'Generar brief estratégico'}
+            Construir plan
           </Button>
         </div>
       </div>
@@ -653,7 +715,7 @@ export default function PlanDetailPage({ params }: Props) {
             onClick={handleResetBrief}
             className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
-            ← Regenerar estrategia
+            ← Volver a configurar
           </button>
           <Button
             onClick={handleGenerate}
@@ -662,13 +724,13 @@ export default function PlanDetailPage({ params }: Props) {
             size="lg"
           >
             <Sparkles className="h-4 w-4" />
-            {generating ? 'Generando ideas...' : 'Generar ideas de contenido'}
+            {generating ? 'Creando contenido...' : 'Crear contenido'}
           </Button>
         </div>
 
         {generating && (
           <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground animate-pulse">
-            Claude está generando 3 ideas por cada pieza de contenido...
+            Claude está creando guiones, slides y copy para cada pieza...
           </div>
         )}
       </div>
@@ -794,11 +856,31 @@ export default function PlanDetailPage({ params }: Props) {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
-            Volver al resumen
+            Resumen
           </button>
-          <span className="text-sm text-muted-foreground">
-            Pieza {currentItemIdx + 1} de {items.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{currentItemIdx + 1} / {items.length}</span>
+            <button
+              onClick={() => {
+                const prev = items[currentItemIdx - 1]
+                if (prev) { setReviewItemId(prev.id); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
+              }}
+              disabled={currentItemIdx <= 0}
+              className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => {
+                const next = items[currentItemIdx + 1]
+                if (next) { setReviewItemId(next.id); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
+              }}
+              disabled={currentItemIdx >= items.length - 1}
+              className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="mb-5">
@@ -836,7 +918,7 @@ export default function PlanDetailPage({ params }: Props) {
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleRefine} disabled={refining || !refineFeedback.trim()} className="gap-1.5">
                     <Sparkles className="h-3.5 w-3.5" />
-                    {refining ? 'Refinando...' : 'Generar versión ajustada'}
+                    {refining ? 'Ajustando...' : 'Generar versión ajustada'}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setRefineMode(false)}>Cancelar</Button>
                 </div>
@@ -847,25 +929,25 @@ export default function PlanDetailPage({ params }: Props) {
                   <>
                     <Button onClick={handleApproveIdea} className="gap-1.5">
                       <Check className="h-4 w-4" />
-                      Aprobar versión ajustada
+                      Usar versión ajustada
                     </Button>
                     <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
                       <RefreshCw className="h-4 w-4" />
                       Ajustar más
                     </Button>
                     <Button variant="ghost" onClick={() => setRefinedIdea(null)} className="text-muted-foreground text-sm">
-                      Ver pieza original
+                      Ver original
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button onClick={handleApproveIdea} className="gap-1.5">
                       <Check className="h-4 w-4" />
-                      Aprobar pieza
+                      Usar esta idea
                     </Button>
                     <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
                       <Sparkles className="h-4 w-4" />
-                      Proponer ajuste
+                      Ajustar con feedback
                     </Button>
                   </>
                 )}
@@ -903,7 +985,7 @@ export default function PlanDetailPage({ params }: Props) {
         </div>
         <Button onClick={handleGenerate} disabled={generating} variant="outline" size="sm" className="gap-2 shrink-0">
           <Sparkles className="h-4 w-4" />
-          {generating ? 'Regenerando...' : 'Regenerar ideas'}
+          {generating ? 'Reconstruyendo...' : 'Reconstruir plan'}
         </Button>
       </div>
 
@@ -923,10 +1005,36 @@ export default function PlanDetailPage({ params }: Props) {
         </div>
         {!allApproved && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Haz clic en cualquier pieza pendiente para revisar y aprobar sus 3 ideas
+            Haz clic en cualquier pieza pendiente para revisar y aprobar el contenido
           </p>
         )}
       </div>
+
+      {/* Collapsible brief */}
+      {plan?.strategicBrief && (
+        <div className="mb-4 rounded-xl border border-border bg-card overflow-hidden">
+          <button
+            onClick={() => setShowBrief(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/30 transition-colors"
+          >
+            <span className="font-medium text-card-foreground">Brief estratégico del mes</span>
+            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${showBrief ? 'rotate-90' : ''}`} />
+          </button>
+          {showBrief && (
+            <div className="px-4 pb-4 border-t border-border pt-3">
+              <div className="prose prose-sm max-w-none text-card-foreground">
+                {plan.strategicBrief.split('\n').map((line, i) => {
+                  if (line.startsWith('### ')) return <h3 key={i} className="mt-3 mb-1 text-sm font-semibold text-foreground">{line.slice(4)}</h3>
+                  if (line.startsWith('## ')) return <h2 key={i} className="mt-4 mb-1 text-sm font-bold text-foreground">{line.slice(3)}</h2>
+                  if (line.startsWith('- ')) return <p key={i} className="flex gap-2 text-xs text-muted-foreground my-0.5"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" /><span dangerouslySetInnerHTML={{ __html: line.slice(2).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} /></p>
+                  if (line.trim() === '') return <div key={i} className="h-1" />
+                  return <p key={i} className="text-xs text-muted-foreground my-0.5" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground">$1</strong>') }} />
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {generating && (
         <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground animate-pulse">
@@ -970,18 +1078,25 @@ export default function PlanDetailPage({ params }: Props) {
                     {globalIdx + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{item.temporality ?? `Pieza ${idx + 1}`}</p>
-                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {item.rawIdeas?.ideas[0]?.name ?? item.temporality ?? `Pieza ${idx + 1}`}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      {item.rawIdeas?.ideas[0]?.contentType && (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {item.rawIdeas.ideas[0].contentType}
+                        </span>
+                      )}
                       <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
                         {FUNNEL_LABELS[item.funnelStage]}
                       </span>
                       {item.rawIdeas?.channel && (
                         <span className="text-[11px] text-muted-foreground">{item.rawIdeas.channel}</span>
                       )}
-                      {item.rawIdeas?.targetEmotion && (
-                        <span className="text-[11px] text-muted-foreground">· {item.rawIdeas.targetEmotion}</span>
-                      )}
                     </div>
+                    {item.temporality && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/60 truncate">{item.temporality}</p>
+                    )}
                   </div>
                   <div className="shrink-0">
                     {isApproved ? (

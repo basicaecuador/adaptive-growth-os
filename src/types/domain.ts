@@ -67,6 +67,7 @@ export interface PlanProduct {
   name: string
   description: string
   objective: string
+  websiteUrl?: string
 }
 
 export interface PlanIdea {
