@@ -76,18 +76,22 @@ FECHAS: ${ecuadorDates}
 
 TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
 
-CAMPOS por idea — lineamientos creativos para producción. Valores BREVES:
-- type: "disruptiva" | "aspiracional" | "racional"
-- name: título del concepto (3 palabras máx)
+CAMPOS por idea — lineamientos creativos para producción. La idea aprobada será el insumo directo para generar el contenido final en la siguiente fase.
+
+Reglas de formato:
 - format: Reel | Carrusel | Post | Historia
-- hook: qué ocurre en los primeros 3s para detener el scroll (10 palabras máx)
-- higgsfield_prompt: dirección visual para IA de video (10 palabras máx)
-- structure: estructura breve del contenido. Para Carrusel: "S1: [tema]. S2: [tema]. S3: [tema]. S4: CTA." Para Reel: narración en 3 actos en 1 oración. Para Post: concepto del caption en 1 oración. (máx 30 palabras)
-- cta: texto exacto del call to action (5 palabras máx)
+- higgsfield_prompt: SOLO incluir si format es "Reel" o "Historia" (video). Para Post o Carrusel: dejar como "" (string vacío)
+- hook: para video (Reel/Historia) → qué ocurre en los primeros 3s visualmente. Para Post/Carrusel → primera línea o título impactante. (10 palabras máx)
+- structure: SEGÚN FORMATO —
+  * Reel/Historia: "[Apertura]. [Desarrollo]. [Cierre + CTA]." (1 oración por acto)
+  * Carrusel: "S1: [tema]. S2: [tema]. S3: [tema]. S4: CTA." (máx 4 slides)
+  * Post: concepto del caption y tono (1-2 oraciones)
+- name: título del concepto (3 palabras máx)
+- cta: texto exacto (5 palabras máx)
 - kpi: métrica principal (2 palabras máx)
 
-JSON exacto:
-[{"temporality":"Sem 1 — Lun 6","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-06","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Concepto tres palabras","format":"Carrusel","hook":"Mostrar pantalla con resultado inesperado","higgsfield_prompt":"Zoom rápido a pantalla, luz dramática","structure":"S1: Pregunta disruptiva. S2: Problema que nadie dice. S3: Solución con producto. S4: CTA.","cta":"Pruébalo gratis","kpi":"Alcance"},{"type":"aspiracional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","structure":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","structure":"...","cta":"...","kpi":"..."}]}]`
+JSON — valores BREVES, sigue exactamente esta estructura:
+[{"temporality":"Sem 1 — Lun 6","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-06","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Concepto tres palabras","format":"Reel","hook":"Persona descubre resultado inesperado en pantalla","higgsfield_prompt":"Zoom rápido a pantalla brillante, expresión sorpresa","structure":"Hook: reacción sorpresa. Desarrollo: revela el beneficio. Cierre: marca + CTA.","cta":"Descúbrelo ahora","kpi":"Reproducciones"},{"type":"aspiracional","name":"...","format":"Carrusel","hook":"Título que conecta con aspiración","higgsfield_prompt":"","structure":"S1: Sueño de la audiencia. S2: Obstáculo. S3: Solución con marca. S4: CTA.","cta":"Empieza hoy","kpi":"Guardados"},{"type":"racional","name":"...","format":"Post","hook":"Estadística o hecho concreto","higgsfield_prompt":"","structure":"Caption directo con dato + beneficio + llamado a acción claro.","cta":"Ver más","kpi":"Clics"}]}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({

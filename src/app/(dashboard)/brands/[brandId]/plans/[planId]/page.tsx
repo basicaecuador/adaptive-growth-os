@@ -149,8 +149,13 @@ function EditableCell({
   )
 }
 
+const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
+
 function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }) {
   const cfg = IDEA_CONFIG[idea.type]
+  const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
+  const hookLabel = isVideo ? 'STOP — Hook (primeros 3 segundos)' : 'STOP — Apertura'
+
   return (
     <div className={`rounded-xl border-2 ${cfg.border} ${cfg.bg} p-5 space-y-4`}>
       {isRefined && (
@@ -159,28 +164,40 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
           Versión refinada
         </div>
       )}
+
+      {idea.contentType && (
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-foreground/10 px-2.5 py-0.5 text-xs font-semibold text-foreground">
+            {idea.contentType}
+          </span>
+          {isVideo && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              Video
+            </span>
+          )}
+        </div>
+      )}
+
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">STOP — Hook (primeros 3 segundos)</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{hookLabel}</p>
         <p className="text-sm font-medium text-foreground">{idea.hook}</p>
-        {idea.higgsfieldPrompt && (
+        {isVideo && idea.higgsfieldPrompt && (
           <div className="mt-2 rounded-lg bg-black/5 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Higgsfield prompt</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Higgsfield — dirección visual</p>
             <p className="text-xs text-foreground/80 italic">{idea.higgsfieldPrompt}</p>
           </div>
         )}
       </div>
-      {idea.contentType && (
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Formato sugerido</p>
-          <p className="text-sm font-medium text-foreground">{idea.contentType}</p>
-        </div>
-      )}
+
       {idea.development && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Estructura del contenido</p>
-          <p className="text-sm text-foreground">{idea.development}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            THINK — {idea.contentType === 'Carrusel' ? 'Estructura de slides' : idea.contentType === 'Post' ? 'Concepto del caption' : 'Estructura narrativa'}
+          </p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{idea.development}</p>
         </div>
       )}
+
       <div className="flex gap-4">
         <div className="flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ACT — CTA</p>
@@ -191,12 +208,10 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
           <p className="text-sm text-foreground">{idea.kpi || '—'}</p>
         </div>
       </div>
-      {idea.whyWorks && (
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Por qué funciona</p>
-          <p className="text-sm text-muted-foreground">{idea.whyWorks}</p>
-        </div>
-      )}
+
+      <div className="rounded-lg border border-dashed border-muted-foreground/30 px-3 py-2 text-[11px] text-muted-foreground">
+        Al aprobar esta idea, sus campos se usarán como insumo para generar el contenido final en la siguiente fase.
+      </div>
     </div>
   )
 }
