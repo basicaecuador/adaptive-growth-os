@@ -2,18 +2,18 @@
 
 import { use, useState, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   useContentPlan,
   useGenerateBrief,
   useGeneratePlan,
   useUpdatePlan,
   useUpdatePlanItem,
+  useRefineIdea,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
-import type { ContentPlanItem, FunnelStage } from '@/types/domain'
+import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType } from '@/types/domain'
 
 interface Props {
   params: Promise<{ brandId: string; planId: string }>
@@ -41,6 +41,33 @@ const STATUS_COLORS = {
   rejected: 'bg-red-100 text-red-700',
 }
 
+const IDEA_CONFIG: Record<IdeaType, { label: string; icon: React.ReactNode; color: string; border: string; bg: string; badge: string }> = {
+  disruptiva: {
+    label: 'Disruptiva',
+    icon: <Zap className="h-4 w-4" />,
+    color: 'text-rose-600',
+    border: 'border-rose-200',
+    bg: 'bg-rose-50',
+    badge: 'bg-rose-100 text-rose-700',
+  },
+  aspiracional: {
+    label: 'Aspiracional',
+    icon: <Heart className="h-4 w-4" />,
+    color: 'text-violet-600',
+    border: 'border-violet-200',
+    bg: 'bg-violet-50',
+    badge: 'bg-violet-100 text-violet-700',
+  },
+  racional: {
+    label: 'Racional',
+    icon: <BarChart2 className="h-4 w-4" />,
+    color: 'text-blue-600',
+    border: 'border-blue-200',
+    bg: 'bg-blue-50',
+    badge: 'bg-blue-100 text-blue-700',
+  },
+}
+
 const COLUMNS: { key: keyof ContentPlanItem; label: string; width: string }[] = [
   { key: 'temporality', label: 'Fecha / Temporalidad', width: 'w-36' },
   { key: 'funnelStage', label: 'Etapa funnel', width: 'w-32' },
@@ -51,7 +78,6 @@ const COLUMNS: { key: keyof ContentPlanItem; label: string; width: string }[] = 
   { key: 'kpi', label: 'KPI', width: 'w-36' },
   { key: 'mainMessage', label: 'Mensaje principal', width: 'w-48' },
   { key: 'cta', label: 'CTA', width: 'w-32' },
-  { key: 'benchmarkReference', label: 'Benchmark', width: 'w-44' },
   { key: 'observations', label: 'Observaciones', width: 'w-48' },
 ]
 
@@ -123,6 +149,46 @@ function EditableCell({
   )
 }
 
+function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }) {
+  const cfg = IDEA_CONFIG[idea.type]
+  return (
+    <div className={`rounded-xl border-2 ${cfg.border} ${cfg.bg} p-5 space-y-4`}>
+      {isRefined && (
+        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+          <RefreshCw className="h-3 w-3" />
+          Versión refinada
+        </div>
+      )}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">STOP — Hook (primeros 3 segundos)</p>
+        <p className="text-sm font-medium text-foreground">{idea.hook}</p>
+        <div className="mt-2 rounded-lg bg-black/5 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Higgsfield prompt</p>
+          <p className="text-xs text-foreground/80 italic">{idea.higgsfieldPrompt}</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Desarrollo</p>
+        <p className="text-sm text-foreground">{idea.development}</p>
+      </div>
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ACT — CTA</p>
+          <p className="text-sm font-medium text-foreground">{idea.cta}</p>
+        </div>
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
+          <p className="text-sm text-foreground">{idea.kpi}</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Por qué funciona</p>
+        <p className="text-sm text-muted-foreground">{idea.whyWorks}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function PlanDetailPage({ params }: Props) {
   const { brandId, planId } = use(params)
   const { data, isLoading } = useContentPlan(planId)
@@ -130,11 +196,12 @@ export default function PlanDetailPage({ params }: Props) {
   const { mutateAsync: generate, isPending: generating } = useGeneratePlan(planId)
   const { mutateAsync: updatePlan, isPending: savingBrief } = useUpdatePlan(planId)
   const { mutateAsync: updateItem } = useUpdatePlanItem(planId)
+  const { mutateAsync: refineIdea, isPending: refining } = useRefineIdea(planId)
 
   const plan = data?.plan
   const items = data?.items ?? []
 
-  // Step 1 local state
+  // Step 1 state
   const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
   const [funnelFocus, setFunnelFocus] = useState('balanced')
   const [piecesCount, setPiecesCount] = useState(12)
@@ -142,6 +209,13 @@ export default function PlanDetailPage({ params }: Props) {
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefDraft, setBriefDraft] = useState('')
+
+  // Step 3 wizard state
+  const [reviewItemId, setReviewItemId] = useState<string | null>(null)
+  const [selectedIdeaType, setSelectedIdeaType] = useState<IdeaType | null>(null)
+  const [refineMode, setRefineMode] = useState(false)
+  const [refineFeedback, setRefineFeedback] = useState('')
+  const [refinedIdea, setRefinedIdea] = useState<PlanIdea | null>(null)
 
   function toggleChannel(ch: string) {
     setChannelMix(prev =>
@@ -181,11 +255,96 @@ export default function PlanDetailPage({ params }: Props) {
   }
 
   async function handleGenerate() {
+    setReviewItemId(null)
+    setSelectedIdeaType(null)
+    setRefinedIdea(null)
+    setRefineMode(false)
     try {
       await generate()
-      toast.success('Plan generado correctamente')
+      toast.success('Ideas generadas — revisa y aprueba cada pieza')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar')
+    }
+  }
+
+  function handleSelectIdea(type: IdeaType) {
+    setSelectedIdeaType(type)
+    setRefineMode(false)
+    setRefinedIdea(null)
+    setRefineFeedback('')
+  }
+
+  async function handleRefine() {
+    if (!reviewItemId || !selectedIdeaType || !refineFeedback.trim()) return
+    const item = items.find(i => i.id === reviewItemId)
+    if (!item?.rawIdeas) return
+    const currentIdea = refinedIdea ?? item.rawIdeas.ideas.find(i => i.type === selectedIdeaType)
+    if (!currentIdea) return
+
+    const currentSet = {
+      ...item.rawIdeas,
+      ideas: refinedIdea
+        ? item.rawIdeas.ideas.map(i => i.type === selectedIdeaType ? refinedIdea : i)
+        : item.rawIdeas.ideas,
+    }
+
+    try {
+      const refined = await refineIdea({
+        itemId: reviewItemId,
+        ideaType: selectedIdeaType,
+        feedback: refineFeedback.trim(),
+        currentIdeaSet: currentSet,
+      })
+      setRefinedIdea(refined)
+      setRefineMode(false)
+      setRefineFeedback('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al refinar')
+    }
+  }
+
+  async function handleApproveIdea() {
+    if (!reviewItemId || !selectedIdeaType) return
+    const item = items.find(i => i.id === reviewItemId)
+    if (!item?.rawIdeas) return
+    const originalIdea = item.rawIdeas.ideas.find(i => i.type === selectedIdeaType)
+    const idea = refinedIdea ?? originalIdea
+    if (!idea) return
+
+    try {
+      await updateItem({
+        itemId: reviewItemId,
+        patch: {
+          selectedIdeaType,
+          status: 'approved',
+          idea: `${idea.name}: ${idea.summary}`,
+          format: idea.contentType,
+          channel: item.rawIdeas.channel,
+          objective: idea.funnelObjective,
+          kpi: idea.kpi,
+          mainMessage: idea.development,
+          cta: idea.cta,
+          benchmarkReference: idea.benchmarkReference,
+          observations: `Hook: ${idea.hook}\n\nHighsfield: ${idea.higgsfieldPrompt}\n\n${idea.whyWorks}`,
+        },
+      })
+
+      const nextPending = items.find(i => i.id !== reviewItemId && i.status !== 'approved' && i.rawIdeas)
+      if (nextPending) {
+        setReviewItemId(nextPending.id)
+        setSelectedIdeaType(null)
+        setRefinedIdea(null)
+        setRefineMode(false)
+        setRefineFeedback('')
+        toast.success('Idea aprobada — siguiente pieza')
+      } else {
+        setReviewItemId(null)
+        setSelectedIdeaType(null)
+        setRefinedIdea(null)
+        toast.success('¡Todas las ideas aprobadas!')
+      }
+    } catch {
+      toast.error('Error al aprobar idea')
     }
   }
 
@@ -210,7 +369,6 @@ export default function PlanDetailPage({ params }: Props) {
 
   const monthLabel = plan ? `${MONTH_NAMES[plan.month - 1]} ${plan.year}` : '—'
 
-  // ── Shared header ──────────────────────────────────────────────
   const Header = (
     <div className="mb-8">
       <Link
@@ -239,7 +397,6 @@ export default function PlanDetailPage({ params }: Props) {
       <div className="p-8 max-w-2xl">
         {Header}
 
-        {/* Progress */}
         <div className="mb-6 flex items-center gap-2 text-sm">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">1</span>
           <span className="font-medium text-foreground">Estrategia</span>
@@ -248,11 +405,10 @@ export default function PlanDetailPage({ params }: Props) {
           <span className="text-muted-foreground">Brief</span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-xs font-medium text-muted-foreground">3</span>
-          <span className="text-muted-foreground">Plan de contenidos</span>
+          <span className="text-muted-foreground">Ideas de contenido</span>
         </div>
 
         <div className="space-y-6">
-          {/* Channels */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div>
               <h2 className="font-semibold text-card-foreground">Canales</h2>
@@ -275,7 +431,6 @@ export default function PlanDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Funnel focus */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div>
               <h2 className="font-semibold text-card-foreground">Enfoque del mes</h2>
@@ -299,7 +454,6 @@ export default function PlanDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Pieces count */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div>
               <h2 className="font-semibold text-card-foreground">Volumen de contenido</h2>
@@ -342,7 +496,6 @@ export default function PlanDetailPage({ params }: Props) {
       <div className="p-8 max-w-3xl">
         {Header}
 
-        {/* Progress */}
         <div className="mb-6 flex items-center gap-2 text-sm">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
             <Check className="h-3.5 w-3.5" />
@@ -353,7 +506,7 @@ export default function PlanDetailPage({ params }: Props) {
           <span className="font-medium text-foreground">Brief</span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-xs font-medium text-muted-foreground">3</span>
-          <span className="text-muted-foreground">Plan de contenidos</span>
+          <span className="text-muted-foreground">Ideas de contenido</span>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 mb-6">
@@ -415,22 +568,265 @@ export default function PlanDetailPage({ params }: Props) {
             size="lg"
           >
             <Sparkles className="h-4 w-4" />
-            {generating ? 'Generando plan...' : 'Generar plan de contenidos'}
+            {generating ? 'Generando ideas...' : 'Generar ideas de contenido'}
           </Button>
         </div>
 
         {generating && (
           <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground animate-pulse">
-            Claude está generando el plan basado en el brief aprobado...
+            Claude está generando 3 ideas por cada pieza de contenido...
           </div>
         )}
       </div>
     )
   }
 
-  // ── STEP 3: Content table ───────────────────────────────────────
+  // ── STEP 3: Idea wizard or table ────────────────────────────────
+  const hasIdeas = items.some(i => i.rawIdeas != null)
+  const approvedCount = items.filter(i => i.status === 'approved').length
+  const allApproved = approvedCount === items.length
+
+  // Legacy table view (items generated before the 3-idea format)
+  if (!hasIdeas) {
+    return (
+      <div className="p-8">
+        <Link
+          href={`/brands/${brandId}/plans`}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a planes
+        </Link>
+
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{monthLabel}</h1>
+          </div>
+          <Button onClick={handleGenerate} disabled={generating} variant="outline" className="gap-2 shrink-0">
+            <Sparkles className="h-4 w-4" />
+            {generating ? 'Regenerando...' : 'Regenerar plan'}
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground w-20">Estado</th>
+                {COLUMNS.map(col => (
+                  <th key={col.key} className={`px-3 py-2.5 text-left text-xs font-medium text-muted-foreground ${col.width}`}>
+                    {col.label}
+                  </th>
+                ))}
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground w-20">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr
+                  key={item.id}
+                  className={`border-b border-border ${
+                    item.status === 'approved' ? 'bg-green-50/50' :
+                    item.status === 'rejected' ? 'bg-red-50/30 opacity-60' :
+                    idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                  }`}
+                >
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status]}`}>
+                      {item.status === 'draft' ? 'Revisión' : item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <EditableCell value={item.temporality} onSave={v => handleUpdateField(item.id, 'temporality', v)} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={item.funnelStage}
+                      onChange={e => handleUpdateField(item.id, 'funnelStage', e.target.value)}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium cursor-pointer focus:outline-none ${FUNNEL_COLORS[item.funnelStage]}`}
+                    >
+                      {(Object.keys(FUNNEL_LABELS) as FunnelStage[]).map(s => (
+                        <option key={s} value={s}>{FUNNEL_LABELS[s]}</option>
+                      ))}
+                    </select>
+                  </td>
+                  {(['objective', 'idea'] as const).map(field => (
+                    <td key={field} className="px-3 py-2 align-top">
+                      <EditableCell value={item[field]} onSave={v => handleUpdateField(item.id, field, v)} multiline />
+                    </td>
+                  ))}
+                  <td className="px-3 py-2"><EditableCell value={item.format} onSave={v => handleUpdateField(item.id, 'format', v)} /></td>
+                  <td className="px-3 py-2"><EditableCell value={item.channel} onSave={v => handleUpdateField(item.id, 'channel', v)} /></td>
+                  <td className="px-3 py-2 align-top"><EditableCell value={item.kpi} onSave={v => handleUpdateField(item.id, 'kpi', v)} multiline /></td>
+                  <td className="px-3 py-2 align-top"><EditableCell value={item.mainMessage} onSave={v => handleUpdateField(item.id, 'mainMessage', v)} multiline /></td>
+                  <td className="px-3 py-2"><EditableCell value={item.cta} onSave={v => handleUpdateField(item.id, 'cta', v)} /></td>
+                  <td className="px-3 py-2 align-top"><EditableCell value={item.observations} onSave={v => handleUpdateField(item.id, 'observations', v)} multiline /></td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      {item.status !== 'approved' && (
+                        <button onClick={() => handleStatus(item.id, 'approved')} className="rounded p-1 text-green-600 hover:bg-green-100" title="Aprobar">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {item.status !== 'rejected' && (
+                        <button onClick={() => handleStatus(item.id, 'rejected')} className="rounded p-1 text-red-500 hover:bg-red-100" title="Rechazar">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  // ── STEP 3: 3-ideas wizard ──────────────────────────────────────
+  const reviewItem = reviewItemId ? items.find(i => i.id === reviewItemId) : null
+  const currentItemIdx = reviewItem ? items.indexOf(reviewItem) : -1
+
+  // Item review view
+  if (reviewItem?.rawIdeas) {
+    const ideas = reviewItem.rawIdeas.ideas
+    const activeIdea = ideas.find(i => i.type === selectedIdeaType)
+    const displayIdea = selectedIdeaType === refinedIdea?.type ? (refinedIdea ?? activeIdea) : activeIdea
+
+    return (
+      <div className="p-8 max-w-4xl">
+        <div className="mb-6 flex items-center justify-between">
+          <button
+            onClick={() => { setReviewItemId(null); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false) }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Volver al resumen
+          </button>
+          <span className="text-sm text-muted-foreground">
+            Pieza {currentItemIdx + 1} de {items.length}
+          </span>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-lg font-bold text-foreground">{reviewItem.temporality}</h2>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${FUNNEL_COLORS[reviewItem.funnelStage]}`}>
+              {FUNNEL_LABELS[reviewItem.funnelStage]}
+            </span>
+            <span className="text-sm text-muted-foreground">{reviewItem.rawIdeas.channel}</span>
+            {reviewItem.rawIdeas.targetEmotion && (
+              <span className="text-sm text-muted-foreground">· Emoción objetivo: {reviewItem.rawIdeas.targetEmotion}</span>
+            )}
+          </div>
+          <p className="mt-1.5 text-sm text-muted-foreground">Selecciona la idea que mejor encaje para esta pieza</p>
+        </div>
+
+        {/* 3 idea selector cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          {(['disruptiva', 'aspiracional', 'racional'] as IdeaType[]).map(type => {
+            const idea = ideas.find(i => i.type === type)
+            if (!idea) return null
+            const cfg = IDEA_CONFIG[type]
+            const isSelected = selectedIdeaType === type
+            return (
+              <button
+                key={type}
+                onClick={() => handleSelectIdea(type)}
+                className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  isSelected
+                    ? `${cfg.border} ${cfg.bg} shadow-sm`
+                    : 'border-border bg-card hover:border-muted-foreground/40'
+                }`}
+              >
+                <div className={`mb-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.badge}`}>
+                  {cfg.icon}
+                  {cfg.label}
+                </div>
+                <p className="font-semibold text-foreground text-sm leading-snug mb-1">{idea.name}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{idea.summary}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground/70 line-clamp-2 italic">{idea.hook}</p>
+                {isSelected && (
+                  <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+                    <Check className="h-3 w-3" />
+                    Seleccionada
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Detail + actions */}
+        {displayIdea && (
+          <div className="space-y-4">
+            <IdeaDetail idea={displayIdea} isRefined={refinedIdea?.type === selectedIdeaType} />
+
+            {refineMode ? (
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">¿Qué ajuste quieres hacer a esta idea?</p>
+                <textarea
+                  value={refineFeedback}
+                  onChange={e => setRefineFeedback(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: Hazla más directa, cambia el tono a más informal, enfócate en el precio..."
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleRefine}
+                    disabled={refining || !refineFeedback.trim()}
+                    className="gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {refining ? 'Refinando...' : 'Generar versión refinada'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setRefineMode(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {refinedIdea ? (
+                  <>
+                    <Button onClick={handleApproveIdea} className="gap-1.5">
+                      <Check className="h-4 w-4" />
+                      Aprobar versión refinada
+                    </Button>
+                    <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
+                      <RefreshCw className="h-4 w-4" />
+                      Ajustar más
+                    </Button>
+                    <Button variant="ghost" onClick={() => setRefinedIdea(null)} className="text-muted-foreground">
+                      Volver a las 3 ideas originales
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={handleApproveIdea} className="gap-1.5">
+                      <Check className="h-4 w-4" />
+                      Aprobar esta idea
+                    </Button>
+                    <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
+                      <Sparkles className="h-4 w-4" />
+                      Proponer ajuste
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── STEP 3 overview ─────────────────────────────────────────────
   return (
-    <div className="p-8">
+    <div className="p-8 max-w-4xl">
       <Link
         href={`/brands/${brandId}/plans`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -439,7 +835,7 @@ export default function PlanDetailPage({ params }: Props) {
         Volver a planes
       </Link>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{monthLabel}</h1>
           {plan?.products && (
@@ -452,132 +848,161 @@ export default function PlanDetailPage({ params }: Props) {
             </div>
           )}
         </div>
-        <Button onClick={handleGenerate} disabled={generating} variant="outline" className="gap-2 shrink-0">
+        <Button onClick={handleGenerate} disabled={generating} variant="outline" size="sm" className="gap-2 shrink-0">
           <Sparkles className="h-4 w-4" />
-          {generating ? 'Regenerando...' : 'Regenerar plan'}
+          {generating ? 'Regenerando...' : 'Regenerar ideas'}
         </Button>
       </div>
 
-      {generating && (
-        <div className="mb-6 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground animate-pulse">
-          Claude está regenerando el plan estratégico...
+      {/* Progress bar */}
+      <div className="mb-6 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium text-foreground">
+            {allApproved ? '¡Plan completo!' : `${approvedCount} de ${items.length} piezas aprobadas`}
+          </p>
+          <span className="text-sm text-muted-foreground">{Math.round((approvedCount / items.length) * 100)}%</span>
         </div>
-      )}
-
-      {/* Summary stats */}
-      <div className="mb-4 flex gap-4 text-sm">
-        <span className="text-muted-foreground">{items.length} piezas</span>
-        <span className="text-green-600">{items.filter(i => i.status === 'approved').length} aprobadas</span>
-        <span className="text-muted-foreground">{items.filter(i => i.status === 'draft').length} en revisión</span>
-        {items.filter(i => i.status === 'rejected').length > 0 && (
-          <span className="text-red-600">{items.filter(i => i.status === 'rejected').length} rechazadas</span>
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-green-500 transition-all"
+            style={{ width: `${(approvedCount / items.length) * 100}%` }}
+          />
+        </div>
+        {!allApproved && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Haz clic en cualquier pieza pendiente para revisar y aprobar sus 3 ideas
+          </p>
         )}
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground w-20">Estado</th>
-              {COLUMNS.map(col => (
-                <th key={col.key} className={`px-3 py-2.5 text-left text-xs font-medium text-muted-foreground ${col.width}`}>
-                  {col.label}
-                </th>
-              ))}
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground w-20">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, idx) => (
-              <tr
-                key={item.id}
-                className={`border-b border-border transition-colors ${
-                  item.status === 'approved' ? 'bg-green-50/50' :
-                  item.status === 'rejected' ? 'bg-red-50/30 opacity-60' :
-                  idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                }`}
-              >
-                <td className="px-3 py-2">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status]}`}>
-                    {item.status === 'draft' ? 'Revisión' : item.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+      {generating && (
+        <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground animate-pulse">
+          Claude está regenerando las ideas de contenido...
+        </div>
+      )}
+
+      {/* Items list */}
+      <div className="space-y-2">
+        {items.map((item, idx) => {
+          const isApproved = item.status === 'approved'
+          const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
+          return (
+            <div
+              key={item.id}
+              onClick={() => !isApproved && item.rawIdeas && setReviewItemId(item.id)}
+              className={`flex items-center gap-4 rounded-xl border p-4 transition-all ${
+                isApproved
+                  ? 'border-green-200 bg-green-50/50 cursor-default'
+                  : item.rawIdeas
+                  ? 'border-border bg-card cursor-pointer hover:border-foreground/40 hover:shadow-sm'
+                  : 'border-border bg-card cursor-default'
+              }`}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                {idx + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{item.temporality ?? `Pieza ${idx + 1}`}</p>
+                <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
+                    {FUNNEL_LABELS[item.funnelStage]}
                   </span>
-                </td>
-
-                <td className="px-3 py-2">
-                  <EditableCell value={item.temporality} onSave={v => handleUpdateField(item.id, 'temporality', v)} />
-                </td>
-
-                <td className="px-3 py-2">
-                  <select
-                    value={item.funnelStage}
-                    onChange={e => handleUpdateField(item.id, 'funnelStage', e.target.value)}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium cursor-pointer focus:outline-none ${FUNNEL_COLORS[item.funnelStage]}`}
-                  >
-                    {(Object.keys(FUNNEL_LABELS) as FunnelStage[]).map(s => (
-                      <option key={s} value={s}>{FUNNEL_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </td>
-
-                {(['objective', 'idea'] as const).map(field => (
-                  <td key={field} className="px-3 py-2 align-top">
-                    <EditableCell value={item[field]} onSave={v => handleUpdateField(item.id, field, v)} multiline />
-                  </td>
-                ))}
-
-                <td className="px-3 py-2">
-                  <EditableCell value={item.format} onSave={v => handleUpdateField(item.id, 'format', v)} />
-                </td>
-
-                <td className="px-3 py-2">
-                  <EditableCell value={item.channel} onSave={v => handleUpdateField(item.id, 'channel', v)} />
-                </td>
-
-                <td className="px-3 py-2 align-top">
-                  <EditableCell value={item.kpi} onSave={v => handleUpdateField(item.id, 'kpi', v)} multiline />
-                </td>
-
-                <td className="px-3 py-2 align-top">
-                  <EditableCell value={item.mainMessage} onSave={v => handleUpdateField(item.id, 'mainMessage', v)} multiline />
-                </td>
-
-                <td className="px-3 py-2">
-                  <EditableCell value={item.cta} onSave={v => handleUpdateField(item.id, 'cta', v)} />
-                </td>
-
-                <td className="px-3 py-2 align-top">
-                  <EditableCell value={item.benchmarkReference} onSave={v => handleUpdateField(item.id, 'benchmarkReference', v)} multiline />
-                </td>
-
-                <td className="px-3 py-2 align-top">
-                  <EditableCell value={item.observations} onSave={v => handleUpdateField(item.id, 'observations', v)} multiline />
-                </td>
-
-                <td className="px-3 py-2">
-                  <div className="flex gap-1">
-                    {item.status !== 'approved' && (
-                      <button onClick={() => handleStatus(item.id, 'approved')} className="rounded p-1 text-green-600 hover:bg-green-100" title="Aprobar">
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
+                  {item.rawIdeas?.channel && (
+                    <span className="text-[11px] text-muted-foreground">{item.rawIdeas.channel}</span>
+                  )}
+                  {item.rawIdeas?.targetEmotion && (
+                    <span className="text-[11px] text-muted-foreground">· {item.rawIdeas.targetEmotion}</span>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0">
+                {isApproved ? (
+                  <div className="flex items-center gap-2">
+                    {ideaCfg && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
+                        {ideaCfg.icon}
+                        {ideaCfg.label}
+                      </span>
                     )}
-                    {item.status !== 'rejected' && (
-                      <button onClick={() => handleStatus(item.id, 'rejected')} className="rounded p-1 text-red-500 hover:bg-red-100" title="Rechazar">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {item.status !== 'draft' && (
-                      <button onClick={() => handleStatus(item.id, 'draft')} className="rounded p-1 text-muted-foreground hover:bg-muted" title="Volver a revisión">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                      <Check className="h-3 w-3" />
+                      Aprobada
+                    </span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    Pendiente
+                    <ChevronRight className="h-3 w-3" />
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
+
+      {/* Final table when all approved */}
+      {allApproved && (
+        <div className="mt-8">
+          <h2 className="text-lg font-bold text-foreground mb-4">Plan aprobado</h2>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Tipo</th>
+                  {COLUMNS.map(col => (
+                    <th key={col.key} className={`px-3 py-2.5 text-left text-xs font-medium text-muted-foreground ${col.width}`}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => {
+                  const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
+                  return (
+                    <tr key={item.id} className={`border-b border-border ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
+                      <td className="px-3 py-2">
+                        {ideaCfg && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
+                            {ideaCfg.icon}
+                            {ideaCfg.label}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <EditableCell value={item.temporality} onSave={v => handleUpdateField(item.id, 'temporality', v)} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={item.funnelStage}
+                          onChange={e => handleUpdateField(item.id, 'funnelStage', e.target.value)}
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-medium cursor-pointer focus:outline-none ${FUNNEL_COLORS[item.funnelStage]}`}
+                        >
+                          {(Object.keys(FUNNEL_LABELS) as FunnelStage[]).map(s => (
+                            <option key={s} value={s}>{FUNNEL_LABELS[s]}</option>
+                          ))}
+                        </select>
+                      </td>
+                      {(['objective', 'idea'] as const).map(field => (
+                        <td key={field} className="px-3 py-2 align-top">
+                          <EditableCell value={item[field]} onSave={v => handleUpdateField(item.id, field, v)} multiline />
+                        </td>
+                      ))}
+                      <td className="px-3 py-2"><EditableCell value={item.format} onSave={v => handleUpdateField(item.id, 'format', v)} /></td>
+                      <td className="px-3 py-2"><EditableCell value={item.channel} onSave={v => handleUpdateField(item.id, 'channel', v)} /></td>
+                      <td className="px-3 py-2 align-top"><EditableCell value={item.kpi} onSave={v => handleUpdateField(item.id, 'kpi', v)} multiline /></td>
+                      <td className="px-3 py-2 align-top"><EditableCell value={item.mainMessage} onSave={v => handleUpdateField(item.id, 'mainMessage', v)} multiline /></td>
+                      <td className="px-3 py-2"><EditableCell value={item.cta} onSave={v => handleUpdateField(item.id, 'cta', v)} /></td>
+                      <td className="px-3 py-2 align-top"><EditableCell value={item.observations} onSave={v => handleUpdateField(item.id, 'observations', v)} multiline /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

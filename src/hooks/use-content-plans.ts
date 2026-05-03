@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ContentPlan, ContentPlanItem, PlanProduct } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType } from '@/types/domain'
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -114,6 +114,31 @@ export function useGeneratePlan(planId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
+
+export function useRefineIdea(planId: string) {
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      ideaType,
+      feedback,
+      currentIdeaSet,
+    }: {
+      itemId: string
+      ideaType: IdeaType
+      feedback: string
+      currentIdeaSet: PlanIdeaSet
+    }) => {
+      const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/refine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ideaType, feedback, currentIdeaSet }),
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al refinar idea'))
+      const { data } = await res.json()
+      return data as PlanIdea
     },
   })
 }

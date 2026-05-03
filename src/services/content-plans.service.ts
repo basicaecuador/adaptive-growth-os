@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ContentPlan, ContentPlanItem, PlanProduct, FunnelStage, PlanItemStatus } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdeaSet, FunnelStage, PlanItemStatus, IdeaType } from '@/types/domain'
 
 type PlanRow = {
   id: string
@@ -35,6 +35,8 @@ type PlanItemRow = {
   status: string
   content_item_id: string | null
   sort_order: number
+  raw_ideas: unknown
+  selected_idea_type: string | null
   created_at: string
   updated_at: string
 }
@@ -76,6 +78,8 @@ function toPlanItem(row: PlanItemRow): ContentPlanItem {
     status: row.status as PlanItemStatus,
     contentItemId: row.content_item_id,
     sortOrder: row.sort_order,
+    rawIdeas: (row.raw_ideas as PlanIdeaSet | null) ?? null,
+    selectedIdeaType: (row.selected_idea_type as IdeaType | null) ?? null,
   }
 }
 
@@ -158,6 +162,8 @@ export async function insertPlanItems(
     observations: item.observations,
     status: 'draft',
     sort_order: i,
+    raw_ideas: item.rawIdeas ?? null,
+    selected_idea_type: item.selectedIdeaType ?? null,
   }))
 
   const { data, error } = await supabase
@@ -215,6 +221,8 @@ export async function updatePlanItem(
   if (patch.cta !== undefined) update.cta = patch.cta
   if (patch.observations !== undefined) update.observations = patch.observations
   if (patch.status !== undefined) update.status = patch.status
+  if (patch.rawIdeas !== undefined) update.raw_ideas = patch.rawIdeas
+  if (patch.selectedIdeaType !== undefined) update.selected_idea_type = patch.selectedIdeaType
 
   const { data, error } = await supabase
     .from('content_plan_items')

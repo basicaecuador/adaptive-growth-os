@@ -61,10 +61,37 @@ export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retent
 
 export type PlanItemStatus = 'draft' | 'approved' | 'rejected'
 
+export type IdeaType = 'disruptiva' | 'aspiracional' | 'racional'
+
 export interface PlanProduct {
   name: string
   description: string
   objective: string
+}
+
+export interface PlanIdea {
+  type: IdeaType
+  name: string
+  summary: string
+  contentType: string
+  funnelObjective: string
+  hook: string
+  hookType: string
+  higgsfieldPrompt: string
+  development: string
+  cta: string
+  kpi: string
+  whyWorks: string
+  benchmarkReference: string
+}
+
+export interface PlanIdeaSet {
+  temporality: string
+  scheduledDate: string | null
+  funnelStage: FunnelStage
+  channel: string
+  targetEmotion: string
+  ideas: PlanIdea[]
 }
 
 export interface ContentPlan {
@@ -101,6 +128,8 @@ export interface ContentPlanItem {
   status: PlanItemStatus
   contentItemId: string | null
   sortOrder: number
+  rawIdeas: PlanIdeaSet | null
+  selectedIdeaType: IdeaType | null
 }
 
 export interface ContentItem {

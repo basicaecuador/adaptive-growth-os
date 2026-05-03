@@ -260,6 +260,8 @@ export interface Database {
           status: string
           content_item_id: string | null
           sort_order: number
+          raw_ideas: unknown | null
+          selected_idea_type: string | null
           created_at: string
           updated_at: string
         }
@@ -281,6 +283,8 @@ export interface Database {
           status?: string
           content_item_id?: string | null
           sort_order?: number
+          raw_ideas?: unknown | null
+          selected_idea_type?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -302,6 +306,8 @@ export interface Database {
           status?: string
           content_item_id?: string | null
           sort_order?: number
+          raw_ideas?: unknown | null
+          selected_idea_type?: string | null
           created_at?: string
           updated_at?: string
         }
