@@ -31,7 +31,7 @@ type RawIdea = {
   format: string
   hook: string
   higgsfield_prompt: string
-  key_message: string
+  structure: string
   cta: string
   kpi: string
 }
@@ -76,18 +76,18 @@ FECHAS: ${ecuadorDates}
 
 TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
 
-CAMPOS por idea — son lineamientos creativos, NO contenido final. BREVEDAD MÁXIMA: cada valor máximo 8 palabras.
+CAMPOS por idea — lineamientos creativos para producción. Valores BREVES:
 - type: "disruptiva" | "aspiracional" | "racional"
 - name: título del concepto (3 palabras máx)
 - format: Reel | Carrusel | Post | Historia
-- hook: qué ocurre en los primeros 3s (8 palabras máx)
-- higgsfield_prompt: dirección visual para IA de video (8 palabras máx)
-- key_message: mensaje clave de la pieza (8 palabras máx)
-- cta: call to action (5 palabras máx)
+- hook: qué ocurre en los primeros 3s para detener el scroll (10 palabras máx)
+- higgsfield_prompt: dirección visual para IA de video (10 palabras máx)
+- structure: estructura breve del contenido. Para Carrusel: "S1: [tema]. S2: [tema]. S3: [tema]. S4: CTA." Para Reel: narración en 3 actos en 1 oración. Para Post: concepto del caption en 1 oración. (máx 30 palabras)
+- cta: texto exacto del call to action (5 palabras máx)
 - kpi: métrica principal (2 palabras máx)
 
-JSON exacto — mantén los valores MUY CORTOS como en el ejemplo:
-[{"temporality":"Sem 1 — Lun 6","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-06","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Concepto tres palabras","format":"Reel","hook":"Primer plano reacción inesperada al producto","higgsfield_prompt":"Cámara lenta, primer plano, expresión sorpresa","key_message":"Esto cambia tu rutina diaria","cta":"Descubre cómo","kpi":"Alcance"},{"type":"aspiracional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","key_message":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","key_message":"...","cta":"...","kpi":"..."}]}]`
+JSON exacto:
+[{"temporality":"Sem 1 — Lun 6","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-06","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Concepto tres palabras","format":"Carrusel","hook":"Mostrar pantalla con resultado inesperado","higgsfield_prompt":"Zoom rápido a pantalla, luz dramática","structure":"S1: Pregunta disruptiva. S2: Problema que nadie dice. S3: Solución con producto. S4: CTA.","cta":"Pruébalo gratis","kpi":"Alcance"},{"type":"aspiracional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","structure":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","format":"...","hook":"...","higgsfield_prompt":"...","structure":"...","cta":"...","kpi":"..."}]}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
@@ -116,13 +116,13 @@ JSON exacto — mantén los valores MUY CORTOS como en el ejemplo:
         ideas: (g.ideas ?? []).map(idea => ({
           type: idea.type as IdeaType,
           name: idea.name,
-          summary: idea.key_message ?? '',
+          summary: idea.structure ?? '',
           contentType: idea.format ?? '',
           funnelObjective: '',
           hook: idea.hook,
           hookType: '',
           higgsfieldPrompt: idea.higgsfield_prompt,
-          development: idea.key_message ?? '',
+          development: idea.structure ?? '',
           cta: idea.cta,
           kpi: idea.kpi ?? '',
           whyWorks: '',

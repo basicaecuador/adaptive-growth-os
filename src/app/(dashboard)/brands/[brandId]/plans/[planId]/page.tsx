@@ -177,7 +177,7 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
       )}
       {idea.development && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Mensaje clave</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Estructura del contenido</p>
           <p className="text-sm text-foreground">{idea.development}</p>
         </div>
       )}
