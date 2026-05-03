@@ -25,24 +25,21 @@ const ECUADOR_DATES: Record<number, string[]> = {
   12: ['6 dic — Fundación de Quito', '24-25 dic — Navidad', '31 dic — Fin de año'],
 }
 
-type RawIdea = {
-  type: string
-  name: string
-  format: string
-  hook: string
-  higgsfield_prompt: string
-  structure: string
-  cta: string
-  kpi: string
-}
-
-type RawIdeaSet = {
+type RawPiece = {
+  product: string
+  funnel_stage: string
   temporality: string
   scheduled_date: string | null
-  funnel_stage: string
   channel: string
   target_emotion: string
-  ideas: RawIdea[]
+  idea_type: string
+  format: string
+  name: string
+  hook: string
+  higgsfield_prompt: string
+  content: string
+  cta: string
+  kpi: string
 }
 
 export async function POST(
@@ -61,44 +58,69 @@ export async function POST(
     const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
     const monthName = monthNames[plan.month - 1]
     const ecuadorDates = ECUADOR_DATES[plan.month]?.join('\n') ?? ''
-    const pieces = plan.piecesCount || 12
 
-    const productsText = plan.products.map(p => `- "${p.name}": ${p.description}`).join('\n')
+    const products = plan.products
+    const numProducts = products.length
+    const totalPieces = numProducts * 7
+
+    const productsDetail = products.map((p, i) =>
+      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}`
+    ).join('\n')
+
     const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
+    const mm = String(plan.month).padStart(2, '0')
+    const yy = plan.year
 
     const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act.
 
-MARCA: ${brand.name} | Voz: ${brand.voice || 'No definida'} | Audiencia: ${brand.targetAudience || 'No definida'}
-PROPUESTA: ${brand.valueProposition || 'No definida'}
-PRODUCTOS: ${productsText}
-MES: ${monthName} ${plan.year}
-BRIEF: ${(plan.strategicBrief ?? '').slice(0, 800)}
-FECHAS: ${ecuadorDates}
-CANALES ACTIVOS: ${channelList} — USA ÚNICAMENTE estos canales en el campo "channel". No uses ningún otro canal.
+MARCA: ${brand.name} | Voz: ${brand.voice || 'N/A'} | Audiencia: ${brand.targetAudience || 'N/A'}
+PROPUESTA: ${brand.valueProposition || 'N/A'}
+MES: ${monthName} ${yy} | FECHAS CLAVE: ${ecuadorDates}
+BRIEF: ${(plan.strategicBrief ?? '').slice(0, 500)}
+CANALES ACTIVOS (SOLO estos): ${channelList}
 
-TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional. Distribuye los momentos entre los canales activos.
+PRODUCTOS:
+${productsDetail}
 
-CAMPOS por idea — lineamientos creativos para producción. La idea aprobada será el insumo directo para generar el contenido final en la siguiente fase.
+INSTRUCCIÓN:
+Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
+Por cada producto genera exactamente 7 piezas en 4 etapas:
+- awareness (2 piezas, Sem 1-2): captar audiencia nueva, primera impresión
+- consideration (2 piezas, Sem 2-3): educar, mostrar valor, generar interés activo
+- conversion (2 piezas, Sem 3-4): cerrar venta, generar lead, urgencia o prueba social
+- remarketing (1 pieza, Sem 4): retarget a quien interactuó sin convertir
 
-Reglas de formato:
-- format: Reel | Carrusel | Post | Historia
-- higgsfield_prompt: SOLO incluir si format es "Reel" o "Historia" (video). Para Post o Carrusel: dejar como "" (string vacío)
-- hook: para video (Reel/Historia) → qué ocurre en los primeros 3s visualmente. Para Post/Carrusel → primera línea o título impactante. (10 palabras máx)
-- structure: SEGÚN FORMATO —
-  * Reel/Historia: "[Apertura]. [Desarrollo]. [Cierre + CTA]." (1 oración por acto)
-  * Carrusel: "S1: [tema]. S2: [tema]. S3: [tema]. S4: CTA." (máx 4 slides)
-  * Post: concepto del caption y tono (1-2 oraciones)
-- name: título del concepto (3 palabras máx)
-- cta: texto exacto (5 palabras máx)
-- kpi: métrica principal (2 palabras máx)
+TOTAL: ${numProducts} producto(s) × 7 = ${totalPieces} piezas
 
-JSON — valores BREVES, sigue exactamente esta estructura:
-[{"temporality":"Sem 1 — Lun 6","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-06","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Concepto tres palabras","format":"Reel","hook":"Persona descubre resultado inesperado en pantalla","higgsfield_prompt":"Zoom rápido a pantalla brillante, expresión sorpresa","structure":"Hook: reacción sorpresa. Desarrollo: revela el beneficio. Cierre: marca + CTA.","cta":"Descúbrelo ahora","kpi":"Reproducciones"},{"type":"aspiracional","name":"...","format":"Carrusel","hook":"Título que conecta con aspiración","higgsfield_prompt":"","structure":"S1: Sueño de la audiencia. S2: Obstáculo. S3: Solución con marca. S4: CTA.","cta":"Empieza hoy","kpi":"Guardados"},{"type":"racional","name":"...","format":"Post","hook":"Estadística o hecho concreto","higgsfield_prompt":"","structure":"Caption directo con dato + beneficio + llamado a acción claro.","cta":"Ver más","kpi":"Clics"}]}]`
+Genera UNA idea por pieza, completamente desarrollada y lista para producción.
+FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
+
+CONTENIDO REQUERIDO POR FORMATO:
+
+Reel/Historia → content="ESC1 (Xs): Visual:[...] | Voz:[texto hablado] | Pantalla:[texto en pantalla]\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nDURACIÓN: Xs"
+
+Carrusel → content="S1: [texto titular] | Visual:[...]\nS2: [texto] | Visual:[...]\nS3: [texto] | Visual:[...]\nS4: [texto] | Visual:[...]\nS5 CTA: [texto CTA] | Visual:[...]"
+
+Post estático → content="TITULAR: [...]\nCUERPO: [caption completo, 2-3 oraciones con tono de marca]\nVISUAL: [descripción de imagen o gráfico]"
+
+Google Search Ad → content="T1: [...](≤30c)\nT2: [...](≤30c)\nT3: [...](≤30c)\nD1: [...](≤90c)\nD2: [...](≤90c)\nURL: [dominio/ruta]"
+
+Google Display → content="TITULAR: [...]\nCUERPO: [texto breve]\nCTA: [texto botón]\nVISUAL: [descripción banner]"
+
+REGLAS:
+- channel: SOLO canales de la lista activa
+- higgsfield_prompt: SOLO para Reel/Historia ("" para el resto)
+- hook (10 palabras máx): video→primeros 3s visuales | resto→titular impactante
+- idea_type: awareness→disruptiva | consideration→aspiracional | conversion/remarketing→racional
+- name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
+
+JSON — solo el array sin markdown:
+[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","hook":"Apertura visual que detiene el scroll","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz dramática","content":"ESC1 (3s): Visual:[primer plano sorpresa] | Voz:[¿Sabías que puedes...?] | Pantalla:[Esto cambia todo]\\nESC2 (12s): Visual:[demo del producto en acción] | Voz:[Con X puedes lograr Y en Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[marca + resultado] | Voz:[Empieza hoy, sin compromiso] | Pantalla:[CTA]\\nDURACIÓN: 20s","cta":"Empieza hoy gratis","kpi":"Reproducciones"}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 6000,
+      max_tokens: 5000,
       system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
       messages: [{ role: 'user', content: prompt }],
     })
@@ -108,41 +130,42 @@ JSON — valores BREVES, sigue exactamente esta estructura:
     const jsonMatch = stripped.match(/\[[\s\S]*\]/)
     if (!jsonMatch) throw new Error(`Respuesta inválida del modelo: ${stripped.slice(0, 200)}`)
 
-    const generated = JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1')) as RawIdeaSet[]
+    const generated = JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1')) as RawPiece[]
 
     await db.from('content_plan_items').delete().eq('plan_id', planId)
 
-    const items = await insertPlanItems(db, planId, generated.map((g, i) => {
+    const items = await insertPlanItems(db, planId, generated.map((raw, i) => {
       const ideaSet: PlanIdeaSet = {
-        temporality: g.temporality,
-        scheduledDate: g.scheduled_date,
-        funnelStage: g.funnel_stage as FunnelStage,
-        channel: g.channel,
-        targetEmotion: g.target_emotion,
-        ideas: (g.ideas ?? []).map(idea => ({
-          type: idea.type as IdeaType,
-          name: idea.name,
-          summary: idea.structure ?? '',
-          contentType: idea.format ?? '',
-          funnelObjective: '',
-          hook: idea.hook,
+        temporality: raw.temporality,
+        scheduledDate: raw.scheduled_date,
+        funnelStage: raw.funnel_stage as FunnelStage,
+        channel: raw.channel,
+        targetEmotion: raw.target_emotion,
+        product: raw.product,
+        ideas: [{
+          type: raw.idea_type as IdeaType,
+          name: raw.name,
+          summary: raw.hook,
+          contentType: raw.format,
+          funnelObjective: raw.funnel_stage,
+          hook: raw.hook,
           hookType: '',
-          higgsfieldPrompt: idea.higgsfield_prompt,
-          development: idea.structure ?? '',
-          cta: idea.cta,
-          kpi: idea.kpi ?? '',
+          higgsfieldPrompt: raw.higgsfield_prompt || '',
+          development: raw.content,
+          cta: raw.cta,
+          kpi: raw.kpi ?? '',
           whyWorks: '',
           benchmarkReference: '',
-        })),
+        }],
       }
       return {
-        temporality: g.temporality,
-        scheduledDate: g.scheduled_date,
-        funnelStage: g.funnel_stage as FunnelStage,
-        objective: null,
+        temporality: raw.temporality,
+        scheduledDate: raw.scheduled_date,
+        funnelStage: raw.funnel_stage as FunnelStage,
+        objective: raw.funnel_stage,
         idea: null,
         format: null,
-        channel: g.channel,
+        channel: raw.channel,
         kpi: null,
         benchmarkReference: null,
         mainMessage: null,

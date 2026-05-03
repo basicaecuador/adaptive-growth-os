@@ -57,7 +57,7 @@ export type ContentPlatform =
   | 'linkedin'
   | 'tiktok'
 
-export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention'
+export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention' | 'remarketing'
 
 export type PlanItemStatus = 'draft' | 'approved' | 'rejected'
 
@@ -91,6 +91,7 @@ export interface PlanIdeaSet {
   funnelStage: FunnelStage
   channel: string
   targetEmotion: string
+  product?: string
   ideas: PlanIdea[]
 }
 

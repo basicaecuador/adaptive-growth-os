@@ -26,6 +26,7 @@ const FUNNEL_COLORS: Record<FunnelStage, string> = {
   consideration: 'bg-blue-100 text-blue-700 border-blue-200',
   conversion: 'bg-green-100 text-green-700 border-green-200',
   retention: 'bg-orange-100 text-orange-700 border-orange-200',
+  remarketing: 'bg-pink-100 text-pink-700 border-pink-200',
 }
 
 const FUNNEL_LABELS: Record<FunnelStage, string> = {
@@ -33,6 +34,7 @@ const FUNNEL_LABELS: Record<FunnelStage, string> = {
   consideration: 'Consideración',
   conversion: 'Conversión',
   retention: 'Retención',
+  remarketing: 'Remarketing',
 }
 
 const STATUS_COLORS = {
@@ -81,13 +83,14 @@ const COLUMNS: { key: keyof ContentPlanItem; label: string; width: string }[] = 
   { key: 'observations', label: 'Observaciones', width: 'w-48' },
 ]
 
-const CHANNELS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Email', 'WhatsApp']
+const CHANNELS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Google', 'Email', 'WhatsApp']
 
 const CHANNEL_INFO: Record<string, { description: string }> = {
   Instagram: { description: 'Mayor alcance orgánico · Reels + Stories de alto impacto' },
   Facebook: { description: 'Comunidad establecida · Grupos y alcance eficiente' },
   TikTok: { description: 'Crecimiento acelerado · Audiencia 18-35 años' },
   LinkedIn: { description: 'Autoridad profesional · Audiencias B2B' },
+  Google: { description: 'Intención activa de compra · Search Ads + Display' },
   Email: { description: 'Alta conversión · Sin algoritmo, audiencia propia' },
   WhatsApp: { description: 'Cierre de ventas directo · Status y difusión' },
 }
@@ -167,9 +170,22 @@ function EditableCell({
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
 function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }) {
-  const cfg = IDEA_CONFIG[idea.type]
+  const cfg = IDEA_CONFIG[idea.type] ?? IDEA_CONFIG['disruptiva']
   const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
-  const hookLabel = isVideo ? 'STOP — Hook (primeros 3 segundos)' : 'STOP — Apertura'
+  const isCarousel = /carrusel|carousel/i.test(idea.contentType ?? '')
+  const isGoogle = /google/i.test(idea.contentType ?? '')
+
+  const contentLabel = isVideo
+    ? 'Guion por escenas'
+    : isCarousel
+    ? 'Estructura de slides'
+    : isGoogle
+    ? 'Anuncio'
+    : 'Copy completo'
+
+  const hookLabel = isVideo ? 'Hook — primeros 3 segundos' : 'Apertura'
+
+  const contentLines = (idea.development ?? '').split('\n').filter(l => l.trim())
 
   return (
     <div className={`rounded-xl border-2 ${cfg.border} ${cfg.bg} p-5 space-y-4`}>
@@ -180,19 +196,26 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
         </div>
       )}
 
-      {idea.contentType && (
-        <div className="flex items-center gap-2">
+      {/* Badges */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {idea.contentType && (
           <span className="rounded-full bg-foreground/10 px-2.5 py-0.5 text-xs font-semibold text-foreground">
             {idea.contentType}
           </span>
-          {isVideo && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-              Video
-            </span>
-          )}
-        </div>
-      )}
+        )}
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.badge}`}>
+          {cfg.icon}
+          {cfg.label}
+        </span>
+        {isVideo && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Video</span>
+        )}
+        {isGoogle && (
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">Google Ads</span>
+        )}
+      </div>
 
+      {/* Hook */}
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{hookLabel}</p>
         <p className="text-sm font-medium text-foreground">{idea.hook}</p>
@@ -204,28 +227,36 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
         )}
       </div>
 
-      {idea.development && (
+      {/* Rich production content */}
+      {contentLines.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            THINK — {idea.contentType === 'Carrusel' ? 'Estructura de slides' : idea.contentType === 'Post' ? 'Concepto del caption' : 'Estructura narrativa'}
-          </p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{idea.development}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{contentLabel}</p>
+          <div className="space-y-1.5">
+            {contentLines.map((line, i) => {
+              const isDurationOrTotal = /^(DURACIÓN|TOTAL|URL):/i.test(line)
+              return (
+                <div
+                  key={i}
+                  className={`rounded-lg px-3 py-2 ${isDurationOrTotal ? 'bg-muted/60' : 'bg-black/[0.04]'}`}
+                >
+                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-mono">{line}</p>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      <div className="flex gap-4">
+      {/* CTA + KPI */}
+      <div className="flex gap-4 pt-1">
         <div className="flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ACT — CTA</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CTA</p>
           <p className="text-sm font-medium text-foreground">{idea.cta}</p>
         </div>
         <div className="flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
           <p className="text-sm text-foreground">{idea.kpi || '—'}</p>
         </div>
-      </div>
-
-      <div className="rounded-lg border border-dashed border-muted-foreground/30 px-3 py-2 text-[11px] text-muted-foreground">
-        Al aprobar esta idea, sus campos se usarán como insumo para generar el contenido final en la siguiente fase.
       </div>
     </div>
   )
@@ -246,7 +277,6 @@ export default function PlanDetailPage({ params }: Props) {
   // Step 1 state
   const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
   const [funnelFocus, setFunnelFocus] = useState('balanced')
-  const [piecesCount, setPiecesCount] = useState(12)
 
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
@@ -265,17 +295,15 @@ export default function PlanDetailPage({ params }: Props) {
     )
   }
 
-  useEffect(() => {
-    setPiecesCount(calcPieces(channelMix.length))
-  }, [channelMix])
 
   async function handleGenerateBrief() {
     if (channelMix.length === 0) {
       toast.error('Selecciona al menos un canal')
       return
     }
+    const computedPieces = (plan?.products?.length ?? 1) * 7
     try {
-      await generateBrief({ channelMix, funnelFocus, piecesCount })
+      await generateBrief({ channelMix, funnelFocus, piecesCount: computedPieces })
       toast.success('Brief estratégico generado')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar brief')
@@ -321,23 +349,23 @@ export default function PlanDetailPage({ params }: Props) {
   }
 
   async function handleRefine() {
-    if (!reviewItemId || !selectedIdeaType || !refineFeedback.trim()) return
+    if (!reviewItemId || !refineFeedback.trim()) return
     const item = items.find(i => i.id === reviewItemId)
     if (!item?.rawIdeas) return
-    const currentIdea = refinedIdea ?? item.rawIdeas.ideas.find(i => i.type === selectedIdeaType)
-    if (!currentIdea) return
+    const baseIdea = refinedIdea ?? item.rawIdeas.ideas[0]
+    if (!baseIdea) return
 
     const currentSet = {
       ...item.rawIdeas,
       ideas: refinedIdea
-        ? item.rawIdeas.ideas.map(i => i.type === selectedIdeaType ? refinedIdea : i)
+        ? item.rawIdeas.ideas.map(i => i.type === refinedIdea.type ? refinedIdea : i)
         : item.rawIdeas.ideas,
     }
 
     try {
       const refined = await refineIdea({
         itemId: reviewItemId,
-        ideaType: selectedIdeaType,
+        ideaType: baseIdea.type,
         feedback: refineFeedback.trim(),
         currentIdeaSet: currentSet,
       })
@@ -350,28 +378,27 @@ export default function PlanDetailPage({ params }: Props) {
   }
 
   async function handleApproveIdea() {
-    if (!reviewItemId || !selectedIdeaType) return
+    if (!reviewItemId) return
     const item = items.find(i => i.id === reviewItemId)
     if (!item?.rawIdeas) return
-    const originalIdea = item.rawIdeas.ideas.find(i => i.type === selectedIdeaType)
-    const idea = refinedIdea ?? originalIdea
+    const idea = refinedIdea ?? item.rawIdeas.ideas[0]
     if (!idea) return
 
     try {
       await updateItem({
         itemId: reviewItemId,
         patch: {
-          selectedIdeaType,
+          selectedIdeaType: idea.type,
           status: 'approved',
-          idea: `${idea.name}: ${idea.summary}`,
+          idea: `${idea.name}: ${idea.hook}`,
           format: idea.contentType,
           channel: item.rawIdeas.channel,
-          objective: idea.funnelObjective,
+          objective: idea.funnelObjective || item.rawIdeas.funnelStage,
           kpi: idea.kpi,
           mainMessage: idea.development,
           cta: idea.cta,
           benchmarkReference: idea.benchmarkReference,
-          observations: `Hook: ${idea.hook}\n\nHighsfield: ${idea.higgsfieldPrompt}\n\n${idea.whyWorks}`,
+          observations: idea.higgsfieldPrompt ? `Higgsfield: ${idea.higgsfieldPrompt}` : undefined,
         },
       })
 
@@ -382,15 +409,15 @@ export default function PlanDetailPage({ params }: Props) {
         setRefinedIdea(null)
         setRefineMode(false)
         setRefineFeedback('')
-        toast.success('Idea aprobada — siguiente pieza')
+        toast.success('Pieza aprobada — siguiente')
       } else {
         setReviewItemId(null)
         setSelectedIdeaType(null)
         setRefinedIdea(null)
-        toast.success('¡Todas las ideas aprobadas!')
+        toast.success('¡Plan completo! Todas las piezas aprobadas.')
       }
     } catch {
-      toast.error('Error al aprobar idea')
+      toast.error('Error al aprobar pieza')
     }
   }
 
@@ -439,15 +466,8 @@ export default function PlanDetailPage({ params }: Props) {
 
   // ── STEP 1: Define strategy ─────────────────────────────────────
   if (!plan?.strategicBrief) {
-    const recommended = calcPieces(channelMix.length)
-    const piecesRationale =
-      channelMix.length === 0
-        ? 'Selecciona al menos un canal para ver la recomendación.'
-        : channelMix.length === 1
-        ? `1 canal activo → ${piecesCount} piezas (2/semana). Mínimo para mantener presencia sin sobrecargar la producción.`
-        : channelMix.length === 2
-        ? `2 canales activos → ${piecesCount} piezas (2-3/semana). Balance óptimo entre alcance y carga de producción.`
-        : `${channelMix.length} canales activos → ${piecesCount} piezas (~3/semana). Distribución eficiente para múltiples plataformas.`
+    const numProducts = plan?.products?.length ?? 1
+    const totalPieces = numProducts * 7
 
     return (
       <div className="p-8 max-w-2xl">
@@ -461,17 +481,39 @@ export default function PlanDetailPage({ params }: Props) {
           <span className="text-muted-foreground">Brief</span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-xs font-medium text-muted-foreground">3</span>
-          <span className="text-muted-foreground">Ideas de contenido</span>
+          <span className="text-muted-foreground">Plan de contenidos</span>
         </div>
 
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
           <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
           <p className="text-sm text-violet-800">
-            Pre-seleccioné <strong>Instagram y Facebook</strong> — los canales con mayor penetración en Ecuador. Confirma o ajusta, y calcularé el volumen mínimo necesario automáticamente.
+            Generaré un funnel completo por cada producto: <strong>{totalPieces} piezas</strong> ({numProducts} producto{numProducts !== 1 ? 's' : ''} × 7 etapas). Confirma los canales y el enfoque del mes.
           </p>
         </div>
 
         <div className="space-y-4">
+          {/* Funnel distribution info */}
+          <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Distribución del funnel por producto</p>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: 'Awareness', pieces: 2, color: 'bg-purple-100 text-purple-700' },
+                { label: 'Consideración', pieces: 2, color: 'bg-blue-100 text-blue-700' },
+                { label: 'Conversión', pieces: 2, color: 'bg-green-100 text-green-700' },
+                { label: 'Remarketing', pieces: 1, color: 'bg-pink-100 text-pink-700' },
+              ].map(stage => (
+                <div key={stage.label} className={`rounded-lg px-2 py-2.5 ${stage.color}`}>
+                  <p className="text-lg font-bold">{stage.pieces}</p>
+                  <p className="text-[10px] font-medium leading-tight mt-0.5">{stage.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground text-center">
+              Cada pieza incluye guion, slides o copy completo listo para producción
+            </p>
+          </div>
+
+          {/* Channels */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="font-semibold text-card-foreground">¿En qué canales publicarán?</h2>
@@ -504,42 +546,7 @@ export default function PlanDetailPage({ params }: Props) {
             </div>
           </div>
 
-          <div className={`rounded-xl border px-5 py-4 transition-colors ${channelMix.length > 0 ? 'border-foreground/20 bg-card' : 'border-dashed border-border bg-muted/20'}`}>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-semibold text-foreground">Piezas recomendadas</p>
-                  {piecesCount !== recommended && channelMix.length > 0 && (
-                    <button
-                      onClick={() => setPiecesCount(recommended)}
-                      className="text-[10px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                    >
-                      Restaurar ({recommended})
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">{piecesRationale}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => setPiecesCount(p => Math.max(6, p - 2))}
-                  disabled={piecesCount <= 6 || channelMix.length === 0}
-                  className="h-8 w-8 flex items-center justify-center rounded-full border border-border text-base font-medium text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-2xl font-bold text-foreground w-8 text-center tabular-nums">{piecesCount}</span>
-                <button
-                  onClick={() => setPiecesCount(p => Math.min(16, p + 2))}
-                  disabled={piecesCount >= 16 || channelMix.length === 0}
-                  className="h-8 w-8 flex items-center justify-center rounded-full border border-border text-base font-medium text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-
+          {/* Funnel focus */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="font-semibold text-card-foreground">¿Cuál es la prioridad estratégica del mes?</h2>
@@ -771,18 +778,16 @@ export default function PlanDetailPage({ params }: Props) {
     )
   }
 
-  // ── STEP 3: 3-ideas wizard ──────────────────────────────────────
+  // ── STEP 3: idea review ─────────────────────────────────────────
   const reviewItem = reviewItemId ? items.find(i => i.id === reviewItemId) : null
   const currentItemIdx = reviewItem ? items.indexOf(reviewItem) : -1
 
-  // Item review view
   if (reviewItem?.rawIdeas) {
-    const ideas = reviewItem.rawIdeas.ideas
-    const activeIdea = ideas.find(i => i.type === selectedIdeaType)
-    const displayIdea = selectedIdeaType === refinedIdea?.type ? (refinedIdea ?? activeIdea) : activeIdea
+    const baseIdea = reviewItem.rawIdeas.ideas[0]
+    const displayIdea = refinedIdea ?? baseIdea
 
     return (
-      <div className="p-8 max-w-4xl">
+      <div className="p-8 max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => { setReviewItemId(null); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false) }}
@@ -796,83 +801,44 @@ export default function PlanDetailPage({ params }: Props) {
           </span>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="mb-5">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
             <h2 className="text-lg font-bold text-foreground">{reviewItem.temporality}</h2>
             <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${FUNNEL_COLORS[reviewItem.funnelStage]}`}>
               {FUNNEL_LABELS[reviewItem.funnelStage]}
             </span>
-            <span className="text-sm text-muted-foreground">{reviewItem.rawIdeas.channel}</span>
-            {reviewItem.rawIdeas.targetEmotion && (
-              <span className="text-sm text-muted-foreground">· Emoción objetivo: {reviewItem.rawIdeas.targetEmotion}</span>
+            {reviewItem.rawIdeas.product && (
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {reviewItem.rawIdeas.product}
+              </span>
             )}
+            <span className="text-sm text-muted-foreground">{reviewItem.rawIdeas.channel}</span>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">Selecciona la idea que mejor encaje para esta pieza</p>
+          {reviewItem.rawIdeas.targetEmotion && (
+            <p className="text-xs text-muted-foreground">Emoción objetivo: {reviewItem.rawIdeas.targetEmotion}</p>
+          )}
         </div>
 
-        {/* 3 idea selector cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          {(['disruptiva', 'aspiracional', 'racional'] as IdeaType[]).map(type => {
-            const idea = ideas.find(i => i.type === type)
-            if (!idea) return null
-            const cfg = IDEA_CONFIG[type]
-            const isSelected = selectedIdeaType === type
-            return (
-              <button
-                key={type}
-                onClick={() => handleSelectIdea(type)}
-                className={`rounded-xl border-2 p-4 text-left transition-all ${
-                  isSelected
-                    ? `${cfg.border} ${cfg.bg} shadow-sm`
-                    : 'border-border bg-card hover:border-muted-foreground/40'
-                }`}
-              >
-                <div className={`mb-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.badge}`}>
-                  {cfg.icon}
-                  {cfg.label}
-                </div>
-                <p className="font-semibold text-foreground text-sm leading-snug mb-1">{idea.name}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{idea.summary}</p>
-                <p className="mt-2 text-[11px] text-muted-foreground/70 line-clamp-2 italic">{idea.hook}</p>
-                {isSelected && (
-                  <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
-                    <Check className="h-3 w-3" />
-                    Seleccionada
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Detail + actions */}
         {displayIdea && (
           <div className="space-y-4">
-            <IdeaDetail idea={displayIdea} isRefined={refinedIdea?.type === selectedIdeaType} />
+            <IdeaDetail idea={displayIdea} isRefined={!!refinedIdea} />
 
             {refineMode ? (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <p className="text-sm font-medium text-foreground">¿Qué ajuste quieres hacer a esta idea?</p>
+                <p className="text-sm font-medium text-foreground">¿Qué ajuste necesita esta pieza?</p>
                 <textarea
                   value={refineFeedback}
                   onChange={e => setRefineFeedback(e.target.value)}
                   rows={3}
-                  placeholder="Ej: Hazla más directa, cambia el tono a más informal, enfócate en el precio..."
+                  placeholder="Ej: Cambia el tono a más directo, ajusta el guion para enfocarse en el precio, modifica el CTA..."
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                 />
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleRefine}
-                    disabled={refining || !refineFeedback.trim()}
-                    className="gap-1.5"
-                  >
+                  <Button size="sm" onClick={handleRefine} disabled={refining || !refineFeedback.trim()} className="gap-1.5">
                     <Sparkles className="h-3.5 w-3.5" />
-                    {refining ? 'Refinando...' : 'Generar versión refinada'}
+                    {refining ? 'Refinando...' : 'Generar versión ajustada'}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setRefineMode(false)}>
-                    Cancelar
-                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setRefineMode(false)}>Cancelar</Button>
                 </div>
               </div>
             ) : (
@@ -881,21 +847,21 @@ export default function PlanDetailPage({ params }: Props) {
                   <>
                     <Button onClick={handleApproveIdea} className="gap-1.5">
                       <Check className="h-4 w-4" />
-                      Aprobar versión refinada
+                      Aprobar versión ajustada
                     </Button>
                     <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
                       <RefreshCw className="h-4 w-4" />
                       Ajustar más
                     </Button>
-                    <Button variant="ghost" onClick={() => setRefinedIdea(null)} className="text-muted-foreground">
-                      Volver a las 3 ideas originales
+                    <Button variant="ghost" onClick={() => setRefinedIdea(null)} className="text-muted-foreground text-sm">
+                      Ver pieza original
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button onClick={handleApproveIdea} className="gap-1.5">
                       <Check className="h-4 w-4" />
-                      Aprobar esta idea
+                      Aprobar pieza
                     </Button>
                     <Button variant="outline" onClick={() => setRefineMode(true)} className="gap-1.5">
                       <Sparkles className="h-4 w-4" />
@@ -968,65 +934,82 @@ export default function PlanDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Items list */}
-      <div className="space-y-2">
-        {items.map((item, idx) => {
-          const isApproved = item.status === 'approved'
-          const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
-          return (
-            <div
-              key={item.id}
-              onClick={() => !isApproved && item.rawIdeas && setReviewItemId(item.id)}
-              className={`flex items-center gap-4 rounded-xl border p-4 transition-all ${
-                isApproved
-                  ? 'border-green-200 bg-green-50/50 cursor-default'
-                  : item.rawIdeas
-                  ? 'border-border bg-card cursor-pointer hover:border-foreground/40 hover:shadow-sm'
-                  : 'border-border bg-card cursor-default'
-              }`}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                {idx + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.temporality ?? `Pieza ${idx + 1}`}</p>
-                <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
-                    {FUNNEL_LABELS[item.funnelStage]}
-                  </span>
-                  {item.rawIdeas?.channel && (
-                    <span className="text-[11px] text-muted-foreground">{item.rawIdeas.channel}</span>
-                  )}
-                  {item.rawIdeas?.targetEmotion && (
-                    <span className="text-[11px] text-muted-foreground">· {item.rawIdeas.targetEmotion}</span>
-                  )}
-                </div>
+      {/* Items grouped by product */}
+      {(() => {
+        const grouped: Record<string, typeof items> = {}
+        items.forEach(item => {
+          const key = item.rawIdeas?.product ?? 'General'
+          if (!grouped[key]) grouped[key] = []
+          grouped[key].push(item)
+        })
+        return Object.entries(grouped).map(([product, productItems]) => (
+          <div key={product} className="space-y-2">
+            {Object.keys(grouped).length > 1 && (
+              <div className="flex items-center gap-2 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{product}</p>
+                <div className="flex-1 h-px bg-border" />
               </div>
-              <div className="shrink-0">
-                {isApproved ? (
-                  <div className="flex items-center gap-2">
-                    {ideaCfg && (
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
-                        {ideaCfg.icon}
-                        {ideaCfg.label}
+            )}
+            {productItems.map((item, idx) => {
+              const isApproved = item.status === 'approved'
+              const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
+              const globalIdx = items.indexOf(item)
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => !isApproved && item.rawIdeas && setReviewItemId(item.id)}
+                  className={`flex items-center gap-4 rounded-xl border p-4 transition-all ${
+                    isApproved
+                      ? 'border-green-200 bg-green-50/50 cursor-default'
+                      : item.rawIdeas
+                      ? 'border-border bg-card cursor-pointer hover:border-foreground/40 hover:shadow-sm'
+                      : 'border-border bg-card cursor-default'
+                  }`}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                    {globalIdx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{item.temporality ?? `Pieza ${idx + 1}`}</p>
+                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
+                        {FUNNEL_LABELS[item.funnelStage]}
+                      </span>
+                      {item.rawIdeas?.channel && (
+                        <span className="text-[11px] text-muted-foreground">{item.rawIdeas.channel}</span>
+                      )}
+                      {item.rawIdeas?.targetEmotion && (
+                        <span className="text-[11px] text-muted-foreground">· {item.rawIdeas.targetEmotion}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {isApproved ? (
+                      <div className="flex items-center gap-2">
+                        {ideaCfg && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
+                            {ideaCfg.icon}
+                            {ideaCfg.label}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                          <Check className="h-3 w-3" />
+                          Aprobada
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Revisar
+                        <ChevronRight className="h-3 w-3" />
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
-                      <Check className="h-3 w-3" />
-                      Aprobada
-                    </span>
                   </div>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Pendiente
-                    <ChevronRight className="h-3 w-3" />
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+                </div>
+              )
+            })}
+          </div>
+        ))
+      })()}
 
       {/* Final table when all approved */}
       {allApproved && (
