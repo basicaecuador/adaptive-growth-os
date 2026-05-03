@@ -95,11 +95,6 @@ const CHANNEL_INFO: Record<string, { description: string }> = {
   WhatsApp: { description: 'Cierre de ventas directo · Status y difusión' },
 }
 
-function calcPieces(n: number): number {
-  if (n <= 1) return 8
-  if (n === 2) return 10
-  return 12
-}
 
 const FUNNEL_FOCUS_OPTIONS = [
   { value: 'balanced', label: 'Equilibrado', description: 'Distribución balanceada entre todas las etapas' },
@@ -285,10 +280,16 @@ export default function PlanDetailPage({ params }: Props) {
 
   // Step 3 wizard state
   const [reviewItemId, setReviewItemId] = useState<string | null>(null)
-  const [selectedIdeaType, setSelectedIdeaType] = useState<IdeaType | null>(null)
   const [refineMode, setRefineMode] = useState(false)
   const [refineFeedback, setRefineFeedback] = useState('')
   const [refinedIdea, setRefinedIdea] = useState<PlanIdea | null>(null)
+  const [confirmRegen, setConfirmRegen] = useState(false)
+
+  // Sync channel mix and funnel focus from stored plan data on load
+  useEffect(() => {
+    if (plan?.channelMix?.length) setChannelMix(plan.channelMix)
+    if (plan?.funnelFocus) setFunnelFocus(plan.funnelFocus)
+  }, [plan?.id])
 
   function toggleChannel(ch: string) {
     setChannelMix(prev =>
@@ -330,22 +331,15 @@ export default function PlanDetailPage({ params }: Props) {
 
   async function handleGenerate() {
     setReviewItemId(null)
-    setSelectedIdeaType(null)
     setRefinedIdea(null)
     setRefineMode(false)
+    setConfirmRegen(false)
     try {
       await generate()
       toast.success('Ideas generadas — revisa y aprueba cada pieza')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar')
     }
-  }
-
-  function handleSelectIdea(type: IdeaType) {
-    setSelectedIdeaType(type)
-    setRefineMode(false)
-    setRefinedIdea(null)
-    setRefineFeedback('')
   }
 
   async function handleRefine() {
@@ -402,17 +396,19 @@ export default function PlanDetailPage({ params }: Props) {
         },
       })
 
-      const nextPending = items.find(i => i.id !== reviewItemId && i.status !== 'approved' && i.rawIdeas)
+      const currentIdx = items.findIndex(i => i.id === reviewItemId)
+      // Look forward first, then wrap to start — skip the just-approved item
+      const nextPending =
+        items.slice(currentIdx + 1).find(i => i.status !== 'approved' && i.rawIdeas) ??
+        items.slice(0, currentIdx).find(i => i.status !== 'approved' && i.rawIdeas)
       if (nextPending) {
         setReviewItemId(nextPending.id)
-        setSelectedIdeaType(null)
         setRefinedIdea(null)
         setRefineMode(false)
         setRefineFeedback('')
         toast.success('Pieza aprobada — siguiente')
       } else {
         setReviewItemId(null)
-        setSelectedIdeaType(null)
         setRefinedIdea(null)
         toast.success('¡Plan completo! Todas las piezas aprobadas.')
       }
@@ -783,6 +779,7 @@ export default function PlanDetailPage({ params }: Props) {
   const currentItemIdx = reviewItem ? items.indexOf(reviewItem) : -1
 
   if (reviewItem?.rawIdeas) {
+    const isApprovedReview = reviewItem.status === 'approved'
     const baseIdea = reviewItem.rawIdeas.ideas[0]
     const displayIdea = refinedIdea ?? baseIdea
 
@@ -790,7 +787,7 @@ export default function PlanDetailPage({ params }: Props) {
       <div className="p-8 max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <button
-            onClick={() => { setReviewItemId(null); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false) }}
+            onClick={() => { setReviewItemId(null); setRefinedIdea(null); setRefineMode(false) }}
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -801,7 +798,7 @@ export default function PlanDetailPage({ params }: Props) {
             <button
               onClick={() => {
                 const prev = items[currentItemIdx - 1]
-                if (prev) { setReviewItemId(prev.id); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
+                if (prev) { setReviewItemId(prev.id); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
               }}
               disabled={currentItemIdx <= 0}
               className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
@@ -811,7 +808,7 @@ export default function PlanDetailPage({ params }: Props) {
             <button
               onClick={() => {
                 const next = items[currentItemIdx + 1]
-                if (next) { setReviewItemId(next.id); setSelectedIdeaType(null); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
+                if (next) { setReviewItemId(next.id); setRefinedIdea(null); setRefineMode(false); setRefineFeedback('') }
               }}
               disabled={currentItemIdx >= items.length - 1}
               className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
@@ -843,7 +840,12 @@ export default function PlanDetailPage({ params }: Props) {
           <div className="space-y-4">
             <IdeaDetail idea={displayIdea} isRefined={!!refinedIdea} />
 
-            {refineMode ? (
+            {isApprovedReview ? (
+              <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                <Check className="h-4 w-4 text-green-600 shrink-0" />
+                <p className="text-sm text-green-700">Esta pieza está aprobada. Solo lectura.</p>
+              </div>
+            ) : refineMode ? (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">¿Qué ajuste necesita esta pieza?</p>
                 <textarea
@@ -891,6 +893,7 @@ export default function PlanDetailPage({ params }: Props) {
                 )}
               </div>
             )}
+
           </div>
         )}
       </div>
@@ -921,10 +924,21 @@ export default function PlanDetailPage({ params }: Props) {
             </div>
           )}
         </div>
-        <Button onClick={handleGenerate} disabled={generating} variant="outline" size="sm" className="gap-2 shrink-0">
-          <Sparkles className="h-4 w-4" />
-          {generating ? 'Reconstruyendo...' : 'Reconstruir plan'}
-        </Button>
+        {confirmRegen ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground">Se borrará el contenido actual</span>
+            <Button onClick={handleGenerate} disabled={generating} variant="destructive" size="sm" className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Confirmar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>Cancelar</Button>
+          </div>
+        ) : (
+          <Button onClick={() => setConfirmRegen(true)} disabled={generating} variant="outline" size="sm" className="gap-2 shrink-0">
+            <Sparkles className="h-4 w-4" />
+            {generating ? 'Reconstruyendo...' : 'Reconstruir plan'}
+          </Button>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -1003,10 +1017,10 @@ export default function PlanDetailPage({ params }: Props) {
               return (
                 <div
                   key={item.id}
-                  onClick={() => !isApproved && item.rawIdeas && setReviewItemId(item.id)}
+                  onClick={() => item.rawIdeas && setReviewItemId(item.id)}
                   className={`flex items-center gap-4 rounded-xl border p-4 transition-all ${
                     isApproved
-                      ? 'border-green-200 bg-green-50/50 cursor-default'
+                      ? 'border-green-200 bg-green-50/50 cursor-pointer hover:border-green-300 hover:shadow-sm'
                       : item.rawIdeas
                       ? 'border-border bg-card cursor-pointer hover:border-foreground/40 hover:shadow-sm'
                       : 'border-border bg-card cursor-default'

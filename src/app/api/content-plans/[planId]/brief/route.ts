@@ -92,7 +92,7 @@ Distribuye las ${piecesCount} piezas entre las 4 etapas. Justifica brevemente ca
 - Awareness: X piezas — [razón]
 - Consideración: X piezas — [razón]
 - Conversión: X piezas — [razón]
-- Retención: X piezas — [razón]
+- Remarketing: X piezas — [razón]
 
 ### Ejes temáticos
 Los 4 grandes temas que deben dominar el mes. Cada eje debe conectar la marca con algo relevante para la audiencia.
