@@ -31,7 +31,9 @@ type RawIdea = {
   summary: string
   hook: string
   higgsfield_prompt: string
+  guion: string
   cta: string
+  kpi: string
 }
 
 type RawIdeaSet = {
@@ -74,21 +76,23 @@ FECHAS: ${ecuadorDates}
 
 TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
 
-REGLAS CRÍTICAS:
-- Todos los valores: máximo 1 oración (15 palabras máx)
-- name: 3-4 palabras
-- hook: qué pasa en los primeros 3 segundos (1 oración)
-- higgsfield_prompt: descripción visual para IA de video (1 oración)
-- cta: texto exacto del CTA (frase corta)
+CAMPOS REQUERIDOS por idea (valores BREVES, máximo 2 oraciones cada uno):
+- type: "disruptiva" | "aspiracional" | "racional"
+- name: título de la idea (4 palabras máx)
 - summary: qué es el contenido (1 oración)
+- hook: qué sucede en los primeros 3 segundos del video/post (1-2 oraciones)
+- higgsfield_prompt: descripción visual detallada para generar el hook con IA de video (1-2 oraciones)
+- guion: guion del contenido — para Reels: narración o texto en pantalla; para Carruseles: estructura de slides (ej: "Slide 1: ..., Slide 2: ..., Slide 3: ..."); para Posts: texto del caption (2-3 oraciones máx)
+- cta: texto exacto del call to action (frase corta)
+- kpi: métrica principal (ej: "Alcance, Reproducciones")
 
 JSON exacto (sin texto extra):
-[{"temporality":"Semana 1 — Lunes ${plan.month === 1 ? '6' : '3'}","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-${plan.month === 1 ? '06' : '03'}","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Nombre 4 palabras","summary":"Qué es el contenido.","hook":"Primeros 3s: [arranque visual].","higgsfield_prompt":"[descripción visual para generar hook].","cta":"Texto del CTA"},{"type":"aspiracional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","cta":"..."},{"type":"racional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","cta":"..."}]}]`
+[{"temporality":"Semana 1 — Lunes ${plan.month === 1 ? '6' : '3'}","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-${plan.month === 1 ? '06' : '03'}","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Nombre 4 palabras","summary":"Qué es el contenido.","hook":"Primeros 3s: [arranque].","higgsfield_prompt":"[descripción visual].","guion":"[guion o estructura de slides].","cta":"Texto del CTA","kpi":"Alcance, Reproducciones"},{"type":"aspiracional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","guion":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","guion":"...","cta":"...","kpi":"..."}]}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4500,
+      max_tokens: 6000,
       system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
       messages: [{ role: 'user', content: prompt }],
     })
@@ -118,9 +122,9 @@ JSON exacto (sin texto extra):
           hook: idea.hook,
           hookType: '',
           higgsfieldPrompt: idea.higgsfield_prompt,
-          development: '',
+          development: idea.guion ?? '',
           cta: idea.cta,
-          kpi: '',
+          kpi: idea.kpi ?? '',
           whyWorks: '',
           benchmarkReference: '',
         })),

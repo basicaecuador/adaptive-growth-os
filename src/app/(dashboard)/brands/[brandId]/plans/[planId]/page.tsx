@@ -171,8 +171,8 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
       </div>
       {idea.development && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Desarrollo</p>
-          <p className="text-sm text-foreground">{idea.development}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Guion / Estructura</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{idea.development}</p>
         </div>
       )}
       <div className="flex gap-4">
@@ -180,12 +180,10 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ACT — CTA</p>
           <p className="text-sm font-medium text-foreground">{idea.cta}</p>
         </div>
-        {idea.kpi && (
-          <div className="flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
-            <p className="text-sm text-foreground">{idea.kpi}</p>
-          </div>
-        )}
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
+          <p className="text-sm text-foreground">{idea.kpi || '—'}</p>
+        </div>
       </div>
       {idea.whyWorks && (
         <div>
