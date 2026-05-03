@@ -140,7 +140,7 @@ Genera los ${plan.piecesCount || 12} momentos distribuidos estratégicamente a l
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 8000,
       system: 'You are a JSON generator for a content planning tool. Respond ONLY with a valid JSON array. No markdown, no explanation, no code blocks. Start your response with [ and end with ].',
       messages: [{ role: 'user', content: prompt }],
