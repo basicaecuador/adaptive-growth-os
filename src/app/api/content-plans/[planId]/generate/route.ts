@@ -64,6 +64,7 @@ export async function POST(
     const pieces = plan.piecesCount || 12
 
     const productsText = plan.products.map(p => `- "${p.name}": ${p.description}`).join('\n')
+    const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
 
     const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act.
 
@@ -73,8 +74,9 @@ PRODUCTOS: ${productsText}
 MES: ${monthName} ${plan.year}
 BRIEF: ${(plan.strategicBrief ?? '').slice(0, 800)}
 FECHAS: ${ecuadorDates}
+CANALES ACTIVOS: ${channelList} — USA ÚNICAMENTE estos canales en el campo "channel". No uses ningún otro canal.
 
-TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
+TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional. Distribuye los momentos entre los canales activos.
 
 CAMPOS por idea — lineamientos creativos para producción. La idea aprobada será el insumo directo para generar el contenido final en la siguiente fase.
 
