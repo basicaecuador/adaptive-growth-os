@@ -113,7 +113,7 @@ export function useGeneratePlan(planId: string) {
       const res = await fetch(`/api/content-plans/${planId}/generate`, {
         method: 'POST',
       })
-      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar plan'))
+      if (!res.ok) throw new Error(await parseErrorMessage(res, `Error generando (HTTP ${res.status})`))
       const { data } = await res.json()
       return data as ContentPlanItem[]
     },
