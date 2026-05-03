@@ -5,11 +5,16 @@ import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, 
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
-    const body = await res.json()
-    return body.error?.message || body.error || fallback
+    const text = await res.text()
+    if (!text) return `${fallback} (HTTP ${res.status})`
+    try {
+      const body = JSON.parse(text)
+      return body.error?.message || (typeof body.error === 'string' ? body.error : null) || fallback
+    } catch {
+      return text.slice(0, 200) || fallback
+    }
   } catch {
-    const text = await res.text().catch(() => '')
-    return text.slice(0, 200) || fallback
+    return fallback
   }
 }
 
