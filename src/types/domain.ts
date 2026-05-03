@@ -68,6 +68,7 @@ export interface PlanProduct {
   description: string
   objective: string
   websiteUrl?: string
+  leadMethod?: string
 }
 
 export interface PlanIdea {

@@ -73,7 +73,7 @@ export async function POST(
     const totalPieces = numProducts * piecesPerProduct
 
     const productsDetail = products.map((p, i) =>
-      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
+      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${p.leadMethod ? ` — captura de lead via: ${p.leadMethod}` : ''}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
     ).join('\n')
 
     const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
@@ -103,6 +103,14 @@ TOTAL: ${numProducts} producto(s) × ${piecesPerProduct} = ${totalPieces} piezas
 
 Genera UNA idea por pieza, completamente desarrollada y lista para producción.
 FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
+
+CAPTURA DE LEADS: Si un producto especifica "captura de lead via", adapta el CTA y la mecánica de conversión:
+- Formulario de Meta → CTA directo al formulario nativo, no necesita salir de la app, texto: "Completa el formulario" / "Regístrate aquí"
+- Landing page → CTA de tráfico: "Visita nuestra web" / "Ver más en [dominio]", incluye URL display
+- WhatsApp → CTA: "Escríbenos al WhatsApp" / "Chatea con nosotros", número o link wa.me
+- Messenger → CTA: "Envíanos un mensaje" / "Habla con nosotros por Messenger"
+- DM de Instagram → CTA: "Escríbenos un DM" / "Mándanos un mensaje"
+- Llamada telefónica → CTA: "Llámanos" / "Habla con un asesor"
 
 REGLAS DE PLATAFORMA META (obligatorio para Reel/Historia/Carrusel/Post):
 1. FORMATO 9:16: Todo contenido social es vertical. Texto y marca en zona segura central (evitar 15% superior e inferior).

@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X, Globe, MessageCircle, Phone, FileText, Send, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +18,7 @@ interface Props {
 }
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 const OBJECTIVE_OPTIONS = [
   'Generar awareness',
@@ -29,11 +30,53 @@ const OBJECTIVE_OPTIONS = [
   'Posicionar marca',
 ]
 
+const LEAD_METHODS = [
+  { id: 'Formulario de Meta', icon: FileText, description: 'Lead form nativo en Meta' },
+  { id: 'Landing page', icon: Globe, description: 'Página externa de conversión' },
+  { id: 'WhatsApp', icon: MessageCircle, description: 'Chat directo por WhatsApp' },
+  { id: 'Messenger', icon: MessageSquare, description: 'Chat de Facebook' },
+  { id: 'DM de Instagram', icon: Send, description: 'Mensaje directo en Instagram' },
+  { id: 'Llamada telefónica', icon: Phone, description: 'Clic para llamar' },
+]
+
 function getNextMonth() {
   const now = new Date()
   const next = now.getMonth() + 2
   if (next > 12) return { month: 1, year: now.getFullYear() + 1 }
   return { month: next, year: now.getFullYear() }
+}
+
+function LeadMethodSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2 pt-1">
+      <p className="text-xs font-medium text-foreground">¿Cómo capturas los leads?</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {LEAD_METHODS.map(({ id, icon: Icon, description }) => {
+          const active = value === id
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(active ? '' : id)}
+              className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-all ${
+                active
+                  ? 'border-foreground bg-foreground/5 ring-1 ring-foreground/20'
+                  : 'border-border bg-background hover:border-foreground/30 hover:bg-muted/40'
+              }`}
+            >
+              <Icon className={`h-4 w-4 ${active ? 'text-foreground' : 'text-muted-foreground'}`} />
+              <div>
+                <p className={`text-[11px] font-semibold leading-none ${active ? 'text-foreground' : 'text-foreground/80'}`}>
+                  {id}
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground leading-tight">{description}</p>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export default function PlansPage({ params }: Props) {
@@ -48,19 +91,19 @@ export default function PlansPage({ params }: Props) {
   const [month, setMonth] = useState(defaults.month)
   const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
-  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '' }])
+  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
 
   function resetForm() {
     const d = getNextMonth()
     setMonth(d.month)
     setYear(d.year)
     setContext('')
-    setProducts([{ name: '', description: '', objective: '', websiteUrl: '' }])
+    setProducts([{ name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
     setShowForm(false)
   }
 
   function addProduct() {
-    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '' }])
+    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
   }
 
   function removeProduct(i: number) {
@@ -68,7 +111,12 @@ export default function PlansPage({ params }: Props) {
   }
 
   function updateProduct(i: number, field: keyof PlanProduct, value: string) {
-    setProducts(p => p.map((prod, idx) => idx === i ? { ...prod, [field]: value } : prod))
+    setProducts(p => p.map((prod, idx) => {
+      if (idx !== i) return prod
+      const updated = { ...prod, [field]: value }
+      if (field === 'objective' && value !== 'Generar leads') updated.leadMethod = ''
+      return updated
+    }))
   }
 
   async function handleCreate() {
@@ -103,92 +151,135 @@ export default function PlansPage({ params }: Props) {
         </div>
 
         <div className="space-y-5">
-          {/* Month + Year */}
+
+          {/* Month picker — visual grid */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <h2 className="font-semibold text-card-foreground">¿Para qué mes?</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mes</label>
-                <select
-                  value={month}
-                  onChange={e => setMonth(Number(e.target.value))}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {MONTH_NAMES.map((m, i) => (
-                    <option key={i} value={i + 1}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Año</label>
-                <Input
-                  type="number"
-                  value={year}
-                  onChange={e => setYear(Number(e.target.value))}
-                  min={2024}
-                  max={2030}
-                  className="py-2.5 font-medium"
-                />
-              </div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-card-foreground">¿Para qué mes?</h2>
+              <Input
+                type="number"
+                value={year}
+                onChange={e => setYear(Number(e.target.value))}
+                min={2024}
+                max={2030}
+                className="w-20 text-center font-medium text-sm h-8"
+              />
+            </div>
+            <div className="grid grid-cols-6 gap-1.5">
+              {MONTH_SHORT.map((m, i) => {
+                const selected = month === i + 1
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setMonth(i + 1)}
+                    className={`rounded-lg py-2 text-xs font-semibold transition-all ${
+                      selected
+                        ? 'bg-foreground text-background'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Products */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-card-foreground">Productos o servicios a promover</h2>
+              <div>
+                <h2 className="font-semibold text-card-foreground">Productos o servicios a promover</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Uno por producto — Claude genera un funnel independiente para cada uno</p>
+              </div>
               <button
                 onClick={addProduct}
-                className="text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
+                className="shrink-0 text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Agregar otro
+                Agregar
               </button>
             </div>
 
             <div className="space-y-3">
               {products.map((prod, i) => (
-                <div key={i} className="rounded-lg border border-border bg-background p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {products.length > 1 ? `Producto ${i + 1}` : 'Producto'}
+                <div key={i} className="rounded-lg border border-border bg-background">
+                  {/* Product header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      {products.length > 1 ? `Producto ${i + 1}` : 'Producto / Servicio'}
                     </span>
                     {products.length > 1 && (
-                      <button onClick={() => removeProduct(i)} className="rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors">
+                      <button
+                        onClick={() => removeProduct(i)}
+                        className="rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                      >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
-                  <Input
-                    placeholder="Nombre del producto o servicio"
-                    value={prod.name}
-                    onChange={e => updateProduct(i, 'name', e.target.value)}
-                  />
-                  <Textarea
-                    placeholder="Descripción: qué es, qué lo hace diferente, promoción vigente, fecha límite..."
-                    value={prod.description}
-                    onChange={e => updateProduct(i, 'description', e.target.value)}
-                    rows={3}
-                  />
-                  <div className="space-y-1">
+
+                  <div className="p-4 space-y-3">
                     <Input
-                      type="url"
-                      placeholder="Página web del producto (opcional)"
-                      value={prod.websiteUrl ?? ''}
-                      onChange={e => updateProduct(i, 'websiteUrl', e.target.value)}
+                      placeholder="Nombre del producto o servicio"
+                      value={prod.name}
+                      onChange={e => updateProduct(i, 'name', e.target.value)}
                     />
-                    <p className="text-[11px] text-muted-foreground px-0.5">Si tiene landing page o ficha comercial, agrégala para enriquecer el contenido</p>
+                    <Textarea
+                      placeholder="Descripción: qué es, qué lo hace diferente, promoción vigente, fecha límite, precio..."
+                      value={prod.description}
+                      onChange={e => updateProduct(i, 'description', e.target.value)}
+                      rows={3}
+                    />
+
+                    {/* Website URL */}
+                    <div className="space-y-1">
+                      <Input
+                        type="url"
+                        placeholder="Página web del producto (opcional)"
+                        value={prod.websiteUrl ?? ''}
+                        onChange={e => updateProduct(i, 'websiteUrl', e.target.value)}
+                      />
+                      <p className="text-[11px] text-muted-foreground px-0.5">
+                        Si tiene landing page o ficha comercial, agrégala para enriquecer el contenido
+                      </p>
+                    </div>
+
+                    {/* Objective */}
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground/70">Objetivo principal</p>
+                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
+                        {OBJECTIVE_OPTIONS.map(o => {
+                          const active = prod.objective === o
+                          return (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() => updateProduct(i, 'objective', o)}
+                              className={`rounded-lg border px-2.5 py-2 text-xs font-medium text-left transition-all leading-snug ${
+                                active
+                                  ? 'border-foreground bg-foreground/5 text-foreground ring-1 ring-foreground/20'
+                                  : 'border-border bg-background text-foreground/70 hover:border-foreground/30 hover:text-foreground'
+                              }`}
+                            >
+                              {o}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Lead method — only when "Generar leads" */}
+                    {prod.objective === 'Generar leads' && (
+                      <div className="rounded-lg border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 dark:border-violet-900 p-3">
+                        <LeadMethodSelector
+                          value={prod.leadMethod ?? ''}
+                          onChange={v => updateProduct(i, 'leadMethod', v)}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <select
-                    value={prod.objective}
-                    onChange={e => updateProduct(i, 'objective', e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Objetivo del funnel...</option>
-                    {OBJECTIVE_OPTIONS.map(o => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
                 </div>
               ))}
             </div>
@@ -197,14 +288,19 @@ export default function PlansPage({ params }: Props) {
           {/* Context */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <div>
-              <h2 className="font-semibold text-card-foreground">Contexto del mes <span className="text-muted-foreground font-normal text-sm">(opcional)</span></h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Información que Claude debe considerar al generar la estrategia</p>
+              <h2 className="font-semibold text-card-foreground">
+                Contexto del mes
+                <span className="ml-2 text-muted-foreground font-normal text-sm">(opcional)</span>
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Información que Claude debe considerar al generar la estrategia
+              </p>
             </div>
             <Textarea
               placeholder="Ej: mes de mayor venta del año, competencia lanzó campaña agresiva, presupuesto limitado, evento especial el día 15..."
               value={context}
               onChange={e => setContext(e.target.value)}
-              rows={4}
+              rows={3}
             />
           </div>
 
