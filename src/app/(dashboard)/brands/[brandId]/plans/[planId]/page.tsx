@@ -278,10 +278,6 @@ export default function PlanDetailPage({ params }: Props) {
   const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
   const [funnelFocus, setFunnelFocus] = useState('balanced')
 
-  // Build flow state
-  const [isBuilding, setIsBuilding] = useState(false)
-  const [buildStep, setBuildStep] = useState<'brief' | 'content' | null>(null)
-
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefDraft, setBriefDraft] = useState('')
@@ -298,31 +294,6 @@ export default function PlanDetailPage({ params }: Props) {
     setChannelMix(prev =>
       prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]
     )
-  }
-
-  async function handleBuildPlan() {
-    if (channelMix.length === 0) {
-      toast.error('Selecciona al menos un canal')
-      return
-    }
-    const computedPieces = (plan?.products?.length ?? 1) * 7
-    setIsBuilding(true)
-    setBuildStep('brief')
-    try {
-      await generateBrief({ channelMix, funnelFocus, piecesCount: computedPieces })
-      setBuildStep('content')
-      setReviewItemId(null)
-      setSelectedIdeaType(null)
-      setRefinedIdea(null)
-      setRefineMode(false)
-      await generate()
-      toast.success('Plan listo — revisa y aprueba cada pieza')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al construir el plan')
-    } finally {
-      setIsBuilding(false)
-      setBuildStep(null)
-    }
   }
 
   async function handleGenerateBrief() {
@@ -493,39 +464,6 @@ export default function PlanDetailPage({ params }: Props) {
     </div>
   )
 
-  // ── BUILDING: combined brief + content loader ───────────────────
-  if (isBuilding) {
-    return (
-      <div className="p-8 max-w-xl">
-        {Header}
-        <div className="flex flex-col items-center justify-center py-16 text-center gap-5">
-          <div className="h-12 w-12 rounded-full border-4 border-violet-100 border-t-violet-500 animate-spin" />
-          <div>
-            <p className="text-lg font-semibold text-foreground">
-              {buildStep === 'brief' ? 'Analizando la estrategia...' : 'Creando el contenido...'}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {buildStep === 'brief'
-                ? 'Claude está construyendo el brief estratégico del mes'
-                : 'Generando guiones, slides y copy listos para producción'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs">
-            <div className={`flex items-center gap-1.5 ${buildStep === 'brief' ? 'text-violet-600 font-medium' : 'text-muted-foreground'}`}>
-              <div className={`h-2 w-2 rounded-full ${buildStep === 'brief' ? 'bg-violet-500 animate-pulse' : 'bg-green-500'}`} />
-              Estrategia
-            </div>
-            <div className="h-px w-8 bg-border" />
-            <div className={`flex items-center gap-1.5 ${buildStep === 'content' ? 'text-violet-600 font-medium' : 'text-muted-foreground/50'}`}>
-              <div className={`h-2 w-2 rounded-full ${buildStep === 'content' ? 'bg-violet-500 animate-pulse' : 'bg-muted-foreground/20'}`} />
-              Contenido
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── STEP 1: Define strategy ─────────────────────────────────────
   if (!plan?.strategicBrief) {
     const numProducts = plan?.products?.length ?? 1
@@ -633,13 +571,13 @@ export default function PlanDetailPage({ params }: Props) {
           </div>
 
           <Button
-            onClick={handleBuildPlan}
-            disabled={isBuilding || channelMix.length === 0}
+            onClick={handleGenerateBrief}
+            disabled={generatingBrief || channelMix.length === 0}
             className="w-full gap-2"
             size="lg"
           >
             <Sparkles className="h-4 w-4" />
-            Construir plan
+            {generatingBrief ? 'Generando brief...' : 'Generar brief estratégico'}
           </Button>
         </div>
       </div>
