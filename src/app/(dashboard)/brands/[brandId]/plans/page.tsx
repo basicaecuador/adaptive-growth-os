@@ -2,10 +2,9 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useContentPlans, useCreateContentPlan } from '@/hooks/use-content-plans'
@@ -30,6 +29,13 @@ const OBJECTIVE_OPTIONS = [
   'Posicionar marca',
 ]
 
+function getNextMonth() {
+  const now = new Date()
+  const next = now.getMonth() + 2
+  if (next > 12) return { month: 1, year: now.getFullYear() + 1 }
+  return { month: next, year: now.getFullYear() }
+}
+
 export default function PlansPage({ params }: Props) {
   const { brandId } = use(params)
   const router = useRouter()
@@ -37,12 +43,21 @@ export default function PlansPage({ params }: Props) {
   const { data: plans = [], isLoading } = useContentPlans(brandId)
   const { mutateAsync: createPlan, isPending: creating } = useCreateContentPlan(brandId)
 
-  const now = new Date()
+  const defaults = getNextMonth()
   const [showForm, setShowForm] = useState(false)
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(defaults.month)
+  const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
   const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '' }])
+
+  function resetForm() {
+    const d = getNextMonth()
+    setMonth(d.month)
+    setYear(d.year)
+    setContext('')
+    setProducts([{ name: '', description: '', objective: '' }])
+    setShowForm(false)
+  }
 
   function addProduct() {
     setProducts(p => [...p, { name: '', description: '', objective: '' }])
@@ -64,11 +79,138 @@ export default function PlansPage({ params }: Props) {
     }
     try {
       const plan = await createPlan({ month, year, products: validProducts, context: context || undefined })
-      toast.success('Plan creado — generando contenido...')
+      toast.success('Plan creado')
       router.push(`/brands/${brandId}/plans/${plan.id}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error inesperado')
     }
+  }
+
+  if (showForm) {
+    return (
+      <div className="p-8 max-w-2xl">
+        <button
+          onClick={resetForm}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Cancelar
+        </button>
+
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Nuevo plan de contenidos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{brand?.name}</p>
+        </div>
+
+        <div className="space-y-5">
+          {/* Month + Year */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <h2 className="font-semibold text-card-foreground">¿Para qué mes?</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mes</label>
+                <select
+                  value={month}
+                  onChange={e => setMonth(Number(e.target.value))}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {MONTH_NAMES.map((m, i) => (
+                    <option key={i} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Año</label>
+                <Input
+                  type="number"
+                  value={year}
+                  onChange={e => setYear(Number(e.target.value))}
+                  min={2024}
+                  max={2030}
+                  className="py-2.5 font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Products */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-card-foreground">Productos o servicios a promover</h2>
+              <button
+                onClick={addProduct}
+                className="text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar otro
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {products.map((prod, i) => (
+                <div key={i} className="rounded-lg border border-border bg-background p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      {products.length > 1 ? `Producto ${i + 1}` : 'Producto'}
+                    </span>
+                    {products.length > 1 && (
+                      <button onClick={() => removeProduct(i)} className="rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    placeholder="Nombre del producto o servicio"
+                    value={prod.name}
+                    onChange={e => updateProduct(i, 'name', e.target.value)}
+                  />
+                  <Textarea
+                    placeholder="Descripción: qué es, qué lo hace diferente, promoción vigente, fecha límite..."
+                    value={prod.description}
+                    onChange={e => updateProduct(i, 'description', e.target.value)}
+                    rows={3}
+                  />
+                  <select
+                    value={prod.objective}
+                    onChange={e => updateProduct(i, 'objective', e.target.value)}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Objetivo del funnel...</option>
+                    {OBJECTIVE_OPTIONS.map(o => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Context */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+            <div>
+              <h2 className="font-semibold text-card-foreground">Contexto del mes <span className="text-muted-foreground font-normal text-sm">(opcional)</span></h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Información que Claude debe considerar al generar la estrategia</p>
+            </div>
+            <Textarea
+              placeholder="Ej: mes de mayor venta del año, competencia lanzó campaña agresiva, presupuesto limitado, evento especial el día 15..."
+              value={context}
+              onChange={e => setContext(e.target.value)}
+              rows={4}
+            />
+          </div>
+
+          <Button
+            onClick={handleCreate}
+            disabled={creating}
+            className="w-full gap-2"
+            size="lg"
+          >
+            <Sparkles className="h-4 w-4" />
+            {creating ? 'Creando plan...' : `Crear plan — ${MONTH_NAMES[month - 1]} ${year}`}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -86,117 +228,22 @@ export default function PlansPage({ params }: Props) {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Planes de contenido</h1>
           <p className="mt-1 text-sm text-muted-foreground">{brand?.name}</p>
         </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nuevo plan
-          </Button>
-        )}
+        <Button onClick={() => setShowForm(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Nuevo plan
+        </Button>
       </div>
-
-      {showForm && (
-        <div className="mb-8 rounded-xl border border-border bg-card p-6 space-y-6">
-          <h2 className="font-semibold text-card-foreground">Nuevo plan de contenidos</h2>
-
-          {/* Month + Year */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Mes</Label>
-              <select
-                value={month}
-                onChange={e => setMonth(Number(e.target.value))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {MONTH_NAMES.map((m, i) => (
-                  <option key={i} value={i + 1}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Año</Label>
-              <Input
-                type="number"
-                value={year}
-                onChange={e => setYear(Number(e.target.value))}
-                min={2024}
-                max={2030}
-              />
-            </div>
-          </div>
-
-          {/* Products */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Productos o servicios a promover</Label>
-              <button
-                onClick={addProduct}
-                className="text-xs text-primary hover:underline"
-              >
-                + Agregar otro
-              </button>
-            </div>
-            {products.map((prod, i) => (
-              <div key={i} className="rounded-lg border border-border p-4 space-y-3 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">Producto {i + 1}</span>
-                  {products.length > 1 && (
-                    <button onClick={() => removeProduct(i)} className="text-xs text-destructive hover:underline">
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-                <Input
-                  placeholder="Nombre del producto o servicio"
-                  value={prod.name}
-                  onChange={e => updateProduct(i, 'name', e.target.value)}
-                />
-                <Input
-                  placeholder="Descripción breve (ej: plan de internet con Disney+, alianza válida hasta el 30)"
-                  value={prod.description}
-                  onChange={e => updateProduct(i, 'description', e.target.value)}
-                />
-                <select
-                  value={prod.objective}
-                  onChange={e => updateProduct(i, 'objective', e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Objetivo del funnel...</option>
-                  {OBJECTIVE_OPTIONS.map(o => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-
-          {/* Context */}
-          <div className="space-y-2">
-            <Label>Contexto adicional <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-            <Textarea
-              placeholder="Ej: mes de mayor venta del año, competencia lanzó campaña agresiva, presupuesto limitado..."
-              value={context}
-              onChange={e => setContext(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button onClick={handleCreate} disabled={creating} className="gap-2 flex-1">
-              <Sparkles className="h-4 w-4" />
-              {creating ? 'Creando...' : `Crear plan — ${MONTH_NAMES[month - 1]} ${year}`}
-            </Button>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-          </div>
-        </div>
-      )}
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Cargando...</div>
-      ) : plans.length === 0 && !showForm ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Calendar className="h-12 w-12 text-muted-foreground/40 mb-4" />
-          <p className="text-sm text-muted-foreground">No hay planes de contenido aún.</p>
-          <Button onClick={() => setShowForm(true)} variant="outline" className="mt-4 gap-2">
+      ) : plans.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Calendar className="h-7 w-7 text-muted-foreground/60" />
+          </div>
+          <p className="font-medium text-foreground">Sin planes aún</p>
+          <p className="mt-1 text-sm text-muted-foreground">Crea el primer plan de contenidos para esta marca</p>
+          <Button onClick={() => setShowForm(true)} className="mt-5 gap-2">
             <Plus className="h-4 w-4" />
             Crear primer plan
           </Button>
@@ -207,16 +254,18 @@ export default function PlansPage({ params }: Props) {
             <Link
               key={plan.id}
               href={`/brands/${brandId}/plans/${plan.id}`}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-4 hover:border-ring transition-colors"
+              className="flex items-center justify-between rounded-xl border border-border bg-card p-4 hover:border-foreground/30 hover:shadow-sm transition-all"
             >
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted shrink-0">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                </div>
                 <div>
-                  <p className="font-medium text-card-foreground">
+                  <p className="font-semibold text-card-foreground">
                     {MONTH_NAMES[plan.month - 1]} {plan.year}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {plan.products.length} producto{plan.products.length !== 1 ? 's' : ''} · {plan.products.map(p => p.name).join(', ')}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {plan.products.length} producto{plan.products.length !== 1 ? 's' : ''} · {plan.products.map(p => p.name).filter(Boolean).join(', ')}
                   </p>
                 </div>
               </div>
