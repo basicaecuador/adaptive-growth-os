@@ -11,6 +11,7 @@ import {
   useUpdatePlan,
   useUpdatePlanItem,
   useRefineIdea,
+  useProducePlan,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
 import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType } from '@/types/domain'
@@ -265,6 +266,7 @@ export default function PlanDetailPage({ params }: Props) {
   const { mutateAsync: updatePlan, isPending: savingBrief } = useUpdatePlan(planId)
   const { mutateAsync: updateItem } = useUpdatePlanItem(planId)
   const { mutateAsync: refineIdea, isPending: refining } = useRefineIdea(planId)
+  const { mutateAsync: producePlan, isPending: producing } = useProducePlan(planId)
 
   const plan = data?.plan
   const items = data?.items ?? []
@@ -378,6 +380,12 @@ export default function PlanDetailPage({ params }: Props) {
     const idea = refinedIdea ?? item.rawIdeas.ideas[0]
     if (!idea) return
 
+    // Decide navigation BEFORE the async call — items state is stable here
+    const currentIdx = items.indexOf(item)
+    const nextPending =
+      items.slice(currentIdx + 1).find(i => i.status !== 'approved' && i.rawIdeas) ??
+      items.slice(0, currentIdx).find(i => i.status !== 'approved' && i.rawIdeas)
+
     try {
       await updateItem({
         itemId: reviewItemId,
@@ -392,15 +400,9 @@ export default function PlanDetailPage({ params }: Props) {
           mainMessage: idea.hook,
           cta: idea.cta,
           benchmarkReference: idea.benchmarkReference,
-          observations: idea.higgsfieldPrompt ? `Higgsfield: ${idea.higgsfieldPrompt}` : undefined,
         },
       })
 
-      const currentIdx = items.findIndex(i => i.id === reviewItemId)
-      // Look forward first, then wrap to start — skip the just-approved item
-      const nextPending =
-        items.slice(currentIdx + 1).find(i => i.status !== 'approved' && i.rawIdeas) ??
-        items.slice(0, currentIdx).find(i => i.status !== 'approved' && i.rawIdeas)
       if (nextPending) {
         setReviewItemId(nextPending.id)
         setRefinedIdea(null)
@@ -410,11 +412,20 @@ export default function PlanDetailPage({ params }: Props) {
       } else {
         setReviewItemId(null)
         setRefinedIdea(null)
-        toast.success('¡Plan completo! Todas las piezas aprobadas.')
+        toast.success('¡Plan de ideas completo! Genera los copys cuando estés listo.')
         try { await updatePlan({ status: 'active' }) } catch {}
       }
     } catch {
       toast.error('Error al aprobar pieza')
+    }
+  }
+
+  async function handleProduce() {
+    try {
+      await producePlan()
+      toast.success('Copys de producción generados')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al generar copys')
     }
   }
 
@@ -676,6 +687,7 @@ export default function PlanDetailPage({ params }: Props) {
   const hasIdeas = items.some(i => i.rawIdeas != null)
   const approvedCount = items.filter(i => i.status === 'approved').length
   const allApproved = approvedCount === items.length
+  const hasProductionCopy = items.some(i => i.status === 'approved' && !!i.observations)
 
   // Legacy table view (items generated before the 3-idea format)
   if (!hasIdeas) {
@@ -912,7 +924,7 @@ export default function PlanDetailPage({ params }: Props) {
         Volver a planes
       </Link>
 
-      <div className="mb-4 flex items-center gap-2 text-sm">
+      <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
           <Check className="h-3.5 w-3.5" />
         </span>
@@ -923,8 +935,19 @@ export default function PlanDetailPage({ params }: Props) {
         </span>
         <span className="text-muted-foreground">Brief</span>
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">3</span>
-        <span className="font-medium text-foreground">{allApproved ? 'Plan aprobado' : 'Revisar contenido'}</span>
+        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${allApproved ? 'bg-muted text-muted-foreground' : 'bg-foreground text-background'}`}>
+          {allApproved ? <Check className="h-3.5 w-3.5" /> : '3'}
+        </span>
+        <span className={allApproved ? 'text-muted-foreground' : 'font-medium text-foreground'}>Ideas</span>
+        {allApproved && (
+          <>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${hasProductionCopy ? 'bg-muted text-muted-foreground' : 'bg-foreground text-background'}`}>
+              {hasProductionCopy ? <Check className="h-3.5 w-3.5" /> : '4'}
+            </span>
+            <span className={hasProductionCopy ? 'text-muted-foreground' : 'font-medium text-foreground'}>Copys</span>
+          </>
+        )}
       </div>
 
       <div className="mb-6 flex items-start justify-between">
@@ -958,10 +981,10 @@ export default function PlanDetailPage({ params }: Props) {
       </div>
 
       {/* Progress bar */}
-      <div className="mb-6 rounded-xl border border-border bg-card p-4">
+      <div className="mb-4 rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-medium text-foreground">
-            {allApproved ? '¡Plan completo!' : `${approvedCount} de ${items.length} piezas aprobadas`}
+            {allApproved ? 'Todas las ideas aprobadas' : `${approvedCount} de ${items.length} ideas aprobadas`}
           </p>
           <span className="text-sm text-muted-foreground">{Math.round((approvedCount / items.length) * 100)}%</span>
         </div>
@@ -977,6 +1000,41 @@ export default function PlanDetailPage({ params }: Props) {
           </p>
         )}
       </div>
+
+      {/* Phase 4: production copy */}
+      {allApproved && (
+        <div className={`mb-6 rounded-xl border-2 p-5 ${hasProductionCopy ? 'border-green-200 bg-green-50/60' : 'border-violet-200 bg-violet-50/60'}`}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Check className={`h-4 w-4 ${hasProductionCopy ? 'text-green-600' : 'text-violet-600'}`} />
+                <h2 className={`text-sm font-bold ${hasProductionCopy ? 'text-green-800' : 'text-violet-800'}`}>
+                  {hasProductionCopy ? '¡Copys de producción listos!' : 'Paso 4: Generar copys de producción'}
+                </h2>
+              </div>
+              <p className={`text-xs ${hasProductionCopy ? 'text-green-700' : 'text-violet-700'}`}>
+                {hasProductionCopy
+                  ? 'Los captions, hooks y hashtags están listos para copiar y publicar.'
+                  : 'Claude genera el caption final, hook en pantalla y hashtags para cada pieza aprobada.'}
+              </p>
+            </div>
+            <Button
+              onClick={handleProduce}
+              disabled={producing}
+              size="sm"
+              className={`shrink-0 gap-1.5 ${hasProductionCopy ? 'bg-green-700 hover:bg-green-800' : 'bg-violet-700 hover:bg-violet-800'} text-white`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {producing ? 'Generando...' : hasProductionCopy ? 'Regenerar copys' : 'Generar copys'}
+            </Button>
+          </div>
+          {producing && (
+            <p className="mt-3 text-xs text-violet-600 animate-pulse">
+              Claude está escribiendo captions y hashtags para cada pieza...
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Collapsible brief */}
       {plan?.strategicBrief && (
@@ -1094,66 +1152,53 @@ export default function PlanDetailPage({ params }: Props) {
         ))
       })()}
 
-      {/* Final table when all approved */}
-      {allApproved && (
-        <div className="mt-8">
-          <h2 className="text-lg font-bold text-foreground mb-4">Plan aprobado</h2>
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Tipo</th>
-                  {COLUMNS.map(col => (
-                    <th key={col.key} className={`px-3 py-2.5 text-left text-xs font-medium text-muted-foreground ${col.width}`}>
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, idx) => {
-                  const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
-                  return (
-                    <tr key={item.id} className={`border-b border-border ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
-                      <td className="px-3 py-2">
-                        {ideaCfg && (
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
-                            {ideaCfg.icon}
-                            {ideaCfg.label}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <EditableCell value={item.temporality} onSave={v => handleUpdateField(item.id, 'temporality', v)} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={item.funnelStage}
-                          onChange={e => handleUpdateField(item.id, 'funnelStage', e.target.value)}
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-medium cursor-pointer focus:outline-none ${FUNNEL_COLORS[item.funnelStage]}`}
-                        >
-                          {(Object.keys(FUNNEL_LABELS) as FunnelStage[]).map(s => (
-                            <option key={s} value={s}>{FUNNEL_LABELS[s]}</option>
-                          ))}
-                        </select>
-                      </td>
-                      {(['objective', 'idea'] as const).map(field => (
-                        <td key={field} className="px-3 py-2 align-top">
-                          <EditableCell value={item[field]} onSave={v => handleUpdateField(item.id, field, v)} multiline />
-                        </td>
-                      ))}
-                      <td className="px-3 py-2"><EditableCell value={item.format} onSave={v => handleUpdateField(item.id, 'format', v)} /></td>
-                      <td className="px-3 py-2"><EditableCell value={item.channel} onSave={v => handleUpdateField(item.id, 'channel', v)} /></td>
-                      <td className="px-3 py-2 align-top"><EditableCell value={item.kpi} onSave={v => handleUpdateField(item.id, 'kpi', v)} multiline /></td>
-                      <td className="px-3 py-2 align-top"><EditableCell value={item.mainMessage} onSave={v => handleUpdateField(item.id, 'mainMessage', v)} multiline /></td>
-                      <td className="px-3 py-2"><EditableCell value={item.cta} onSave={v => handleUpdateField(item.id, 'cta', v)} /></td>
-                      <td className="px-3 py-2 align-top"><EditableCell value={item.observations} onSave={v => handleUpdateField(item.id, 'observations', v)} multiline /></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* Production copy document */}
+      {hasProductionCopy && (
+        <div className="mt-8 space-y-4">
+          <h2 className="text-base font-bold text-foreground">Copys de producción</h2>
+          {items.filter(i => i.status === 'approved' && i.observations).map((item, idx) => {
+            const idea = item.rawIdeas?.ideas[0]
+            const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
+            return (
+              <div key={item.id} className="rounded-xl border border-border bg-card overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{idea?.name ?? item.temporality}</p>
+                    {item.format && (
+                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{item.format}</span>
+                    )}
+                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
+                      {FUNNEL_LABELS[item.funnelStage]}
+                    </span>
+                    {item.rawIdeas?.channel && (
+                      <span className="text-xs text-muted-foreground">{item.rawIdeas.channel}</span>
+                    )}
+                    {ideaCfg && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${ideaCfg.badge}`}>
+                        {ideaCfg.icon}{ideaCfg.label}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(item.observations ?? '')}
+                    className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                {/* Copy body */}
+                <div className="p-4">
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
+                    {item.observations}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

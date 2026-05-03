@@ -148,6 +148,21 @@ export function useRefineIdea(planId: string) {
   })
 }
 
+export function useProducePlan(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/content-plans/${planId}/produce`, { method: 'POST' })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar copys'))
+      const { data } = await res.json()
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
+
 export function useUpdatePlanItem(planId: string) {
   const qc = useQueryClient()
   return useMutation({
