@@ -71,7 +71,7 @@ export async function POST(
     const mm = String(plan.month).padStart(2, '0')
     const yy = plan.year
 
-    const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act.
+    const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act + Reglas de plataforma Meta.
 
 MARCA: ${brand.name} | Voz: ${brand.voice || 'N/A'} | Audiencia: ${brand.targetAudience || 'N/A'}
 PROPUESTA: ${brand.valueProposition || 'N/A'}
@@ -95,27 +95,45 @@ TOTAL: ${numProducts} producto(s) × 7 = ${totalPieces} piezas
 Genera UNA idea por pieza, completamente desarrollada y lista para producción.
 FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
 
+REGLAS DE PLATAFORMA META (obligatorio para Reel/Historia/Carrusel/Post):
+1. FORMATO 9:16: Todo contenido social es vertical. Texto y marca en zona segura central (evitar 15% superior e inferior).
+2. HOOK EN 3s: Los primeros 3 segundos determinan si sigue o no. La marca debe aparecer antes del segundo 3. Diversifica tipos de hook: visual (movimiento/color/sorpresa), texto (pregunta/dato/promesa en pantalla), trending (formato viral reconocible).
+3. SONIDO COMO NARRATIVA: Diseña primero para sin sonido (texto en pantalla siempre). Luego enriquece con voz en off o audio que aporte significado, no solo de fondo.
+4. LENGUAJE NATIVO: Habla como humano de la plataforma, no como anuncio de televisión. Tono conversacional, directo, sin locuciones comerciales genéricas.
+5. SHAREABILITY: Cada pieza necesita un motivo de compartir — dato sorprendente, insight útil, humor, identificación, ahorro de tiempo, o revelación inesperada.
+6. PITCH/PLAY/PLAN: Pitch=<10s micro-mensaje de urgencia | Play=carrusel interactivo para explorar | Plan=Reel >30s estilo creator con narración/tutorial/transformación.
+7. CTA VISIBLE EN PANTALLA: El CTA debe aparecer escrito dentro del creativo (texto en pantalla o slide final), no solo en el caption o botón de interfaz.
+
+MAPA EMOCIONAL POR ETAPA:
+- awareness → target_emotion: Curiosidad | Sorpresa | Asombro
+- consideration → target_emotion: Confianza | Aspiración | Identificación
+- conversion → target_emotion: Urgencia | Validación social | FOMO
+- remarketing → target_emotion: Reactivación | Oportunidad perdida | Nostalgia
+
 CONTENIDO REQUERIDO POR FORMATO:
 
-Reel/Historia → content="ESC1 (Xs): Visual:[...] | Voz:[texto hablado] | Pantalla:[texto en pantalla]\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nDURACIÓN: Xs"
+Reel/Historia → Define momento Pitch/Play/Plan. Hook type explícito. Audio como elemento narrativo. Texto en pantalla en CADA escena. CTA visible en última escena.
+content="HOOK TYPE: [visual|texto|trending]\nAUDIO: [descripción música o voz en off]\nESC1 (Xs): Visual:[...] | Voz:[texto hablado] | Pantalla:[texto en pantalla obligatorio]\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[CTA visible en pantalla]\nDURACIÓN: Xs | MOMENTO: [Pitch|Plan]\nSHAREABILITY: [motivo concreto por el que se comparte]"
 
-Carrusel → content="S1: [texto titular] | Visual:[...]\nS2: [texto] | Visual:[...]\nS3: [texto] | Visual:[...]\nS4: [texto] | Visual:[...]\nS5 CTA: [texto CTA] | Visual:[...]"
+Carrusel → Momento Play. S1 = hook visual con texto de alto impacto. Última slide = CTA visible en imagen.
+content="S1 HOOK: [texto titular de alto impacto] | Visual:[...]\nS2: [texto] | Visual:[...]\nS3: [texto] | Visual:[...]\nS4: [texto] | Visual:[...]\nS5 CTA: [texto CTA visible en la imagen] | Visual:[...]\nSHAREABILITY: [motivo concreto]"
 
-Post estático → content="TITULAR: [...]\nCUERPO: [caption completo, 2-3 oraciones con tono de marca]\nVISUAL: [descripción de imagen o gráfico]"
+Post estático → Zona segura. Texto principal legible en imagen. CTA escrito dentro del gráfico.
+content="TITULAR: [...]\nCUERPO: [caption completo, 2-3 oraciones con tono conversacional de marca]\nVISUAL: [descripción de imagen, elementos en zona segura central]\nCTA EN IMAGEN: [texto visible dentro del gráfico]"
 
 Google Search Ad → content="T1: [...](≤30c)\nT2: [...](≤30c)\nT3: [...](≤30c)\nD1: [...](≤90c)\nD2: [...](≤90c)\nURL: [dominio/ruta]"
 
 Google Display → content="TITULAR: [...]\nCUERPO: [texto breve]\nCTA: [texto botón]\nVISUAL: [descripción banner]"
 
-REGLAS:
+REGLAS JSON:
 - channel: SOLO canales de la lista activa
-- higgsfield_prompt: SOLO para Reel/Historia ("" para el resto)
-- hook (10 palabras máx): video→primeros 3s visuales | resto→titular impactante
+- higgsfield_prompt: SOLO para Reel/Historia — describe movimiento de cámara + atmósfera visual + dirección de luz ("" para el resto)
+- hook (10 palabras máx): video→describe los primeros 3s visuales | resto→titular impactante
 - idea_type: awareness→disruptiva | consideration→aspiracional | conversion/remarketing→racional
 - name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
 
 JSON — solo el array sin markdown:
-[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","hook":"Apertura visual que detiene el scroll","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz dramática","content":"ESC1 (3s): Visual:[primer plano sorpresa] | Voz:[¿Sabías que puedes...?] | Pantalla:[Esto cambia todo]\\nESC2 (12s): Visual:[demo del producto en acción] | Voz:[Con X puedes lograr Y en Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[marca + resultado] | Voz:[Empieza hoy, sin compromiso] | Pantalla:[CTA]\\nDURACIÓN: 20s","cta":"Empieza hoy gratis","kpi":"Reproducciones"}]`
+[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","hook":"Primer plano manos sosteniendo producto inesperado","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","content":"HOOK TYPE: visual\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano manos sosteniendo producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto existe.]\\nESC2 (12s): Visual:[demo en acción ángulo cenital] | Voz:[Con X logras Y en solo Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado final + logo marca en zona segura] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que la audiencia querrá reenviar a un amigo","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
