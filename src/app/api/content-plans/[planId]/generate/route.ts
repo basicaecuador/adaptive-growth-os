@@ -29,9 +29,10 @@ type RawIdea = {
   type: string
   name: string
   summary: string
+  format: string
   hook: string
   higgsfield_prompt: string
-  guion: string
+  key_message: string
   cta: string
   kpi: string
 }
@@ -76,18 +77,19 @@ FECHAS: ${ecuadorDates}
 
 TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
 
-CAMPOS REQUERIDOS por idea (valores BREVES, máximo 2 oraciones cada uno):
+CAMPOS REQUERIDOS por idea (son lineamientos creativos, NO contenido final — valores BREVES, máximo 2 oraciones cada uno):
 - type: "disruptiva" | "aspiracional" | "racional"
-- name: título de la idea (4 palabras máx)
-- summary: qué es el contenido (1 oración)
-- hook: qué sucede en los primeros 3 segundos del video/post (1-2 oraciones)
-- higgsfield_prompt: descripción visual detallada para generar el hook con IA de video (1-2 oraciones)
-- guion: guion del contenido — para Reels: narración o texto en pantalla; para Carruseles: estructura de slides (ej: "Slide 1: ..., Slide 2: ..., Slide 3: ..."); para Posts: texto del caption (2-3 oraciones máx)
-- cta: texto exacto del call to action (frase corta)
-- kpi: métrica principal (ej: "Alcance, Reproducciones")
+- name: nombre del concepto (4 palabras máx)
+- summary: de qué trata la idea (1 oración)
+- format: formato sugerido (Reel, Carrusel, Post, Historia)
+- hook: concepto del hook — qué ocurre en los primeros 3 segundos para detener el scroll (1-2 oraciones)
+- higgsfield_prompt: dirección visual para generar el hook con IA de video — describe cámara, movimiento, sujeto, atmósfera (1-2 oraciones)
+- key_message: mensaje clave que debe comunicar esta pieza (1 oración)
+- cta: dirección del call to action (frase corta)
+- kpi: métrica principal (ej: "Alcance", "Reproducciones", "Clics")
 
 JSON exacto (sin texto extra):
-[{"temporality":"Semana 1 — Lunes ${plan.month === 1 ? '6' : '3'}","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-${plan.month === 1 ? '06' : '03'}","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Nombre 4 palabras","summary":"Qué es el contenido.","hook":"Primeros 3s: [arranque].","higgsfield_prompt":"[descripción visual].","guion":"[guion o estructura de slides].","cta":"Texto del CTA","kpi":"Alcance, Reproducciones"},{"type":"aspiracional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","guion":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","guion":"...","cta":"...","kpi":"..."}]}]`
+[{"temporality":"Semana 1 — Lunes ${plan.month === 1 ? '6' : '3'}","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-${plan.month === 1 ? '06' : '03'}","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Nombre concepto","summary":"De qué trata la idea.","format":"Reel","hook":"Concepto del hook: [qué ocurre en 3s].","higgsfield_prompt":"[dirección visual para IA de video].","key_message":"Mensaje clave que comunica la pieza.","cta":"Dirección del CTA","kpi":"Alcance"},{"type":"aspiracional","name":"...","summary":"...","format":"...","hook":"...","higgsfield_prompt":"...","key_message":"...","cta":"...","kpi":"..."},{"type":"racional","name":"...","summary":"...","format":"...","hook":"...","higgsfield_prompt":"...","key_message":"...","cta":"...","kpi":"..."}]}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
@@ -117,12 +119,12 @@ JSON exacto (sin texto extra):
           type: idea.type as IdeaType,
           name: idea.name,
           summary: idea.summary,
-          contentType: '',
+          contentType: idea.format ?? '',
           funnelObjective: '',
           hook: idea.hook,
           hookType: '',
           higgsfieldPrompt: idea.higgsfield_prompt,
-          development: idea.guion ?? '',
+          development: idea.key_message ?? '',
           cta: idea.cta,
           kpi: idea.kpi ?? '',
           whyWorks: '',
