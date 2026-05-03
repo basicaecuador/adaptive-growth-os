@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useRef } from 'react'
+import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -82,6 +82,21 @@ const COLUMNS: { key: keyof ContentPlanItem; label: string; width: string }[] = 
 ]
 
 const CHANNELS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Email', 'WhatsApp']
+
+const CHANNEL_INFO: Record<string, { description: string }> = {
+  Instagram: { description: 'Mayor alcance orgánico · Reels + Stories de alto impacto' },
+  Facebook: { description: 'Comunidad establecida · Grupos y alcance eficiente' },
+  TikTok: { description: 'Crecimiento acelerado · Audiencia 18-35 años' },
+  LinkedIn: { description: 'Autoridad profesional · Audiencias B2B' },
+  Email: { description: 'Alta conversión · Sin algoritmo, audiencia propia' },
+  WhatsApp: { description: 'Cierre de ventas directo · Status y difusión' },
+}
+
+function calcPieces(n: number): number {
+  if (n <= 1) return 8
+  if (n === 2) return 10
+  return 12
+}
 
 const FUNNEL_FOCUS_OPTIONS = [
   { value: 'balanced', label: 'Equilibrado', description: 'Distribución balanceada entre todas las etapas' },
@@ -249,6 +264,10 @@ export default function PlanDetailPage({ params }: Props) {
       prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]
     )
   }
+
+  useEffect(() => {
+    setPiecesCount(calcPieces(channelMix.length))
+  }, [channelMix])
 
   async function handleGenerateBrief() {
     if (channelMix.length === 0) {
@@ -420,6 +439,16 @@ export default function PlanDetailPage({ params }: Props) {
 
   // ── STEP 1: Define strategy ─────────────────────────────────────
   if (!plan?.strategicBrief) {
+    const recommended = calcPieces(channelMix.length)
+    const piecesRationale =
+      channelMix.length === 0
+        ? 'Selecciona al menos un canal para ver la recomendación.'
+        : channelMix.length === 1
+        ? `1 canal activo → ${piecesCount} piezas (2/semana). Mínimo para mantener presencia sin sobrecargar la producción.`
+        : channelMix.length === 2
+        ? `2 canales activos → ${piecesCount} piezas (2-3/semana). Balance óptimo entre alcance y carga de producción.`
+        : `${channelMix.length} canales activos → ${piecesCount} piezas (~3/semana). Distribución eficiente para múltiples plataformas.`
+
     return (
       <div className="p-8 max-w-2xl">
         {Header}
@@ -435,33 +464,86 @@ export default function PlanDetailPage({ params }: Props) {
           <span className="text-muted-foreground">Ideas de contenido</span>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-violet-800">
+            Pre-seleccioné <strong>Instagram y Facebook</strong> — los canales con mayor penetración en Ecuador. Confirma o ajusta, y calcularé el volumen mínimo necesario automáticamente.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <div>
-              <h2 className="font-semibold text-card-foreground">Canales</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">¿En qué plataformas publicará la marca este mes?</p>
+              <h2 className="font-semibold text-card-foreground">¿En qué canales publicarán?</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Activa los canales que usará la marca este mes</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {CHANNELS.map(ch => (
-                <button
-                  key={ch}
-                  onClick={() => toggleChannel(ch)}
-                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                    channelMix.includes(ch)
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border bg-background text-muted-foreground hover:border-foreground/50'
-                  }`}
-                >
-                  {ch}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              {CHANNELS.map(ch => {
+                const info = CHANNEL_INFO[ch]
+                const active = channelMix.includes(ch)
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => toggleChannel(ch)}
+                    className={`w-full flex items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left transition-all ${
+                      active
+                        ? 'border-foreground/30 bg-foreground/5'
+                        : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/30'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium leading-none mb-0.5 ${active ? 'text-foreground' : 'text-muted-foreground'}`}>{ch}</p>
+                      <p className="text-xs text-muted-foreground">{info.description}</p>
+                    </div>
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${active ? 'border-foreground bg-foreground' : 'border-muted-foreground/40'}`}>
+                      {active && <Check className="h-3 w-3 text-background" />}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div className={`rounded-xl border px-5 py-4 transition-colors ${channelMix.length > 0 ? 'border-foreground/20 bg-card' : 'border-dashed border-border bg-muted/20'}`}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-semibold text-foreground">Piezas recomendadas</p>
+                  {piecesCount !== recommended && channelMix.length > 0 && (
+                    <button
+                      onClick={() => setPiecesCount(recommended)}
+                      className="text-[10px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      Restaurar ({recommended})
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{piecesRationale}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setPiecesCount(p => Math.max(6, p - 2))}
+                  disabled={piecesCount <= 6 || channelMix.length === 0}
+                  className="h-8 w-8 flex items-center justify-center rounded-full border border-border text-base font-medium text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  −
+                </button>
+                <span className="text-2xl font-bold text-foreground w-8 text-center tabular-nums">{piecesCount}</span>
+                <button
+                  onClick={() => setPiecesCount(p => Math.min(16, p + 2))}
+                  disabled={piecesCount >= 16 || channelMix.length === 0}
+                  className="h-8 w-8 flex items-center justify-center rounded-full border border-border text-base font-medium text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
             <div>
-              <h2 className="font-semibold text-card-foreground">Enfoque del mes</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">¿Cuál es la prioridad estratégica de este período?</p>
+              <h2 className="font-semibold text-card-foreground">¿Cuál es la prioridad estratégica del mes?</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Define el foco para la distribución de contenidos</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {FUNNEL_FOCUS_OPTIONS.map(opt => (
@@ -476,28 +558,6 @@ export default function PlanDetailPage({ params }: Props) {
                 >
                   <p className="text-sm font-medium text-card-foreground">{opt.label}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{opt.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-card-foreground">Volumen de contenido</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Número estimado de piezas para el mes</p>
-            </div>
-            <div className="flex gap-2">
-              {[8, 10, 12, 14, 16].map(n => (
-                <button
-                  key={n}
-                  onClick={() => setPiecesCount(n)}
-                  className={`flex h-10 w-14 items-center justify-center rounded-lg border text-sm font-medium transition-colors ${
-                    piecesCount === n
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border text-muted-foreground hover:border-foreground/50'
-                  }`}
-                >
-                  {n}
                 </button>
               ))}
             </div>
