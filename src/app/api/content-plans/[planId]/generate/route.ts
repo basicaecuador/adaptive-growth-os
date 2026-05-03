@@ -10,6 +10,13 @@ import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
 import type { FunnelStage, PlanIdeaSet, IdeaType } from '@/types/domain'
 
+const FUNNEL_DISTRIBUTION: Record<string, { awareness: number; consideration: number; conversion: number; remarketing: number }> = {
+  balanced:   { awareness: 2, consideration: 2, conversion: 2, remarketing: 1 },
+  awareness:  { awareness: 3, consideration: 2, conversion: 1, remarketing: 1 },
+  conversion: { awareness: 1, consideration: 2, conversion: 3, remarketing: 1 },
+  retention:  { awareness: 1, consideration: 2, conversion: 2, remarketing: 2 },
+}
+
 const ECUADOR_DATES: Record<number, string[]> = {
   1: ['1 ene — Año Nuevo', '6 ene — Día de Reyes'],
   2: ['14 feb — San Valentín', 'Carnaval (fechas variables)'],
@@ -61,7 +68,9 @@ export async function POST(
 
     const products = plan.products
     const numProducts = products.length
-    const totalPieces = numProducts * 7
+    const dist = FUNNEL_DISTRIBUTION[plan.funnelFocus ?? 'balanced'] ?? FUNNEL_DISTRIBUTION.balanced
+    const piecesPerProduct = dist.awareness + dist.consideration + dist.conversion + dist.remarketing
+    const totalPieces = numProducts * piecesPerProduct
 
     const productsDetail = products.map((p, i) =>
       `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
@@ -84,13 +93,13 @@ ${productsDetail}
 
 INSTRUCCIÓN:
 Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
-Por cada producto genera exactamente 7 piezas en 4 etapas:
-- awareness (2 piezas, Sem 1-2): captar audiencia nueva, primera impresión
-- consideration (2 piezas, Sem 2-3): educar, mostrar valor, generar interés activo
-- conversion (2 piezas, Sem 3-4): cerrar venta, generar lead, urgencia o prueba social
-- remarketing (1 pieza, Sem 4): retarget a quien interactuó sin convertir
+Por cada producto genera exactamente ${piecesPerProduct} piezas en 4 etapas con esta distribución estratégica:
+- awareness (${dist.awareness} pieza${dist.awareness !== 1 ? 's' : ''}, Sem 1-2): captar audiencia nueva, primera impresión
+- consideration (${dist.consideration} pieza${dist.consideration !== 1 ? 's' : ''}, Sem 2-3): educar, mostrar valor, generar interés activo
+- conversion (${dist.conversion} pieza${dist.conversion !== 1 ? 's' : ''}, Sem 3-4): cerrar venta, generar lead, urgencia o prueba social
+- remarketing (${dist.remarketing} pieza${dist.remarketing !== 1 ? 's' : ''}, Sem 4): retarget a quien interactuó sin convertir
 
-TOTAL: ${numProducts} producto(s) × 7 = ${totalPieces} piezas
+TOTAL: ${numProducts} producto(s) × ${piecesPerProduct} = ${totalPieces} piezas
 
 Genera UNA idea por pieza, completamente desarrollada y lista para producción.
 FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display

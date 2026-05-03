@@ -389,7 +389,7 @@ export default function PlanDetailPage({ params }: Props) {
           channel: item.rawIdeas.channel,
           objective: idea.funnelObjective || item.rawIdeas.funnelStage,
           kpi: idea.kpi,
-          mainMessage: idea.development,
+          mainMessage: idea.hook,
           cta: idea.cta,
           benchmarkReference: idea.benchmarkReference,
           observations: idea.higgsfieldPrompt ? `Higgsfield: ${idea.higgsfieldPrompt}` : undefined,
@@ -411,6 +411,7 @@ export default function PlanDetailPage({ params }: Props) {
         setReviewItemId(null)
         setRefinedIdea(null)
         toast.success('¡Plan completo! Todas las piezas aprobadas.')
+        try { await updatePlan({ status: 'active' }) } catch {}
       }
     } catch {
       toast.error('Error al aprobar pieza')
@@ -910,6 +911,21 @@ export default function PlanDetailPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" />
         Volver a planes
       </Link>
+
+      <div className="mb-4 flex items-center gap-2 text-sm">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+          <Check className="h-3.5 w-3.5" />
+        </span>
+        <span className="text-muted-foreground">Estrategia</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+          <Check className="h-3.5 w-3.5" />
+        </span>
+        <span className="text-muted-foreground">Brief</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">3</span>
+        <span className="font-medium text-foreground">{allApproved ? 'Plan aprobado' : 'Revisar contenido'}</span>
+      </div>
 
       <div className="mb-6 flex items-start justify-between">
         <div>
