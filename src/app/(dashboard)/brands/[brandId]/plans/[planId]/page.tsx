@@ -2,8 +2,10 @@
 
 import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SafeZonePreview } from '@/components/creative/safe-zone-preview'
+import { AdobeExpressBtn } from '@/components/creative/adobe-express-btn'
 import {
   useContentPlan,
   useGenerateBrief,
@@ -104,6 +106,92 @@ const FUNNEL_FOCUS_OPTIONS = [
   { value: 'retention', label: 'Priorizar retención', description: 'Fidelización de clientes actuales' },
 ]
 
+const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
+
+function CreativeTools({ idea, compact = false }: { idea: PlanIdea; compact?: boolean }) {
+  const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
+  const isGoogle = /google/i.test(idea.contentType ?? '')
+  const isStatic = !isVideo && !isGoogle
+
+  const [copied, setCopied] = useState(false)
+
+  function copyPrompt(text: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div className={`rounded-xl border border-border bg-muted/30 p-4 space-y-3 ${compact ? 'text-xs' : ''}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Herramientas de producción
+      </p>
+      <div className="flex items-start gap-4">
+        {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
+        <div className="flex-1 min-w-0 space-y-2">
+          {isVideo && idea.higgsfieldPrompt && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Prompt Higgsfield IA
+              </p>
+              <p className="text-xs text-foreground/80 italic leading-relaxed bg-black/[0.04] rounded-lg px-3 py-2">
+                {idea.higgsfieldPrompt}
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => copyPrompt(idea.higgsfieldPrompt!)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Copy className="h-3 w-3" />
+                  {copied ? 'Copiado' : 'Copiar prompt'}
+                </button>
+                <a
+                  href="https://higgsfield.ai/create"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  Abrir Higgsfield
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          )}
+          {isVideo && !idea.higgsfieldPrompt && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Generar con IA
+              </p>
+              <a
+                href="https://higgsfield.ai/create"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                Abrir Higgsfield para el reel
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+          {isStatic && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Diseñar pieza
+              </p>
+              <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+            </div>
+          )}
+          {isGoogle && (
+            <p className="text-xs text-muted-foreground">
+              Copia el texto del anuncio y créalo en Google Ads Manager.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EditableCell({
   value,
   onSave,
@@ -162,8 +250,6 @@ function EditableCell({
     </div>
   )
 }
-
-const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
 function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }) {
   const cfg = IDEA_CONFIG[idea.type] ?? IDEA_CONFIG['disruptiva']
@@ -907,6 +993,7 @@ export default function PlanDetailPage({ params }: Props) {
               </div>
             )}
 
+            <CreativeTools idea={displayIdea} />
           </div>
         )}
       </div>
@@ -1191,10 +1278,11 @@ export default function PlanDetailPage({ params }: Props) {
                   </button>
                 </div>
                 {/* Copy body */}
-                <div className="p-4">
+                <div className="p-4 space-y-4">
                   <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
                     {item.observations}
                   </p>
+                  {idea && <CreativeTools idea={idea} compact />}
                 </div>
               </div>
             )
