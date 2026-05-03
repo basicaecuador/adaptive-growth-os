@@ -162,29 +162,37 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">STOP — Hook (primeros 3 segundos)</p>
         <p className="text-sm font-medium text-foreground">{idea.hook}</p>
-        <div className="mt-2 rounded-lg bg-black/5 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Higgsfield prompt</p>
-          <p className="text-xs text-foreground/80 italic">{idea.higgsfieldPrompt}</p>
+        {idea.higgsfieldPrompt && (
+          <div className="mt-2 rounded-lg bg-black/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Higgsfield prompt</p>
+            <p className="text-xs text-foreground/80 italic">{idea.higgsfieldPrompt}</p>
+          </div>
+        )}
+      </div>
+      {idea.development && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Desarrollo</p>
+          <p className="text-sm text-foreground">{idea.development}</p>
         </div>
-      </div>
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">THINK — Desarrollo</p>
-        <p className="text-sm text-foreground">{idea.development}</p>
-      </div>
+      )}
       <div className="flex gap-4">
         <div className="flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ACT — CTA</p>
           <p className="text-sm font-medium text-foreground">{idea.cta}</p>
         </div>
-        <div className="flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
-          <p className="text-sm text-foreground">{idea.kpi}</p>
+        {idea.kpi && (
+          <div className="flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
+            <p className="text-sm text-foreground">{idea.kpi}</p>
+          </div>
+        )}
+      </div>
+      {idea.whyWorks && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Por qué funciona</p>
+          <p className="text-sm text-muted-foreground">{idea.whyWorks}</p>
         </div>
-      </div>
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Por qué funciona</p>
-        <p className="text-sm text-muted-foreground">{idea.whyWorks}</p>
-      </div>
+      )}
     </div>
   )
 }

@@ -13,10 +13,10 @@ import type { FunnelStage, PlanIdeaSet, IdeaType } from '@/types/domain'
 const ECUADOR_DATES: Record<number, string[]> = {
   1: ['1 ene — Año Nuevo', '6 ene — Día de Reyes'],
   2: ['14 feb — San Valentín', 'Carnaval (fechas variables)'],
-  3: ['8 mar — Día de la Mujer', '21 mar — Equinoccio de primavera', 'Semana Santa (fechas variables)'],
+  3: ['8 mar — Día de la Mujer', '21 mar — Equinoccio', 'Semana Santa (fechas variables)'],
   4: ['21 abr — Batalla de Tapi', 'Semana Santa (si aplica)', '22 abr — Día de la Tierra'],
   5: ['1 may — Día del Trabajo', '2do domingo — Día de la Madre', '24 may — Batalla del Pichincha'],
-  6: ['3er domingo — Día del Padre', '21 jun — Solsticio de verano', 'Inti Raymi (festejo indígena)'],
+  6: ['3er domingo — Día del Padre', '21 jun — Solsticio', 'Inti Raymi'],
   7: ['24 jul — Nacimiento de Simón Bolívar', '25 jul — Fundación de Guayaquil'],
   8: ['10 ago — Primer Grito de Independencia'],
   9: ['28 sep — Consulta Popular (si aplica)'],
@@ -29,16 +29,9 @@ type RawIdea = {
   type: string
   name: string
   summary: string
-  content_type: string
-  funnel_objective: string
   hook: string
-  hook_type: string
   higgsfield_prompt: string
-  development: string
   cta: string
-  kpi: string
-  why_works: string
-  benchmark_reference: string
 }
 
 type RawIdeaSet = {
@@ -66,83 +59,37 @@ export async function POST(
     const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
     const monthName = monthNames[plan.month - 1]
     const ecuadorDates = ECUADOR_DATES[plan.month]?.join('\n') ?? ''
+    const pieces = plan.piecesCount || 12
 
-    const productsText = plan.products.map(p =>
-      `- "${p.name}": ${p.description} (Objetivo de funnel: ${p.objective})`
-    ).join('\n')
+    const productsText = plan.products.map(p => `- "${p.name}": ${p.description}`).join('\n')
 
-    const prompt = `Eres un estratega de contenidos experto en marketing digital para mercado latinoamericano, especializado en Ecuador. Conoces el framework Stop/Think/Act para redes sociales: STOP (hook primeros 3 segundos), THINK (desarrollo de mensaje y branding), ACT (CTA visible).
+    const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act.
 
-## MARCA
-- Nombre: ${brand.name}
-- Voz: ${brand.voice || 'No definida'}
-- Tono: ${brand.tone || 'No definido'}
-- Audiencia: ${brand.targetAudience || 'No definida'}
-- Propuesta de valor: ${brand.valueProposition || 'No definida'}
-- Pilares de contenido: ${brand.contentPillars?.join(', ') || 'No definidos'}
-- Restricciones: ${brand.restrictions?.join(', ') || 'Ninguna'}
+MARCA: ${brand.name} | Voz: ${brand.voice || 'No definida'} | Audiencia: ${brand.targetAudience || 'No definida'}
+PROPUESTA: ${brand.valueProposition || 'No definida'}
+PRODUCTOS: ${productsText}
+MES: ${monthName} ${plan.year}
+BRIEF: ${(plan.strategicBrief ?? '').slice(0, 800)}
+FECHAS: ${ecuadorDates}
 
-## PLAN DE ${monthName.toUpperCase()} ${plan.year}
-${plan.context ? `Contexto: ${plan.context}\n` : ''}Productos/servicios:
-${productsText}
+TAREA: Genera exactamente ${pieces} momentos de contenido. Cada momento tiene 3 ideas: disruptiva, aspiracional, racional.
 
-## BRIEF ESTRATÉGICO APROBADO
-${plan.strategicBrief ?? 'No disponible'}
+REGLAS CRÍTICAS:
+- Todos los valores: máximo 1 oración (15 palabras máx)
+- name: 3-4 palabras
+- hook: qué pasa en los primeros 3 segundos (1 oración)
+- higgsfield_prompt: descripción visual para IA de video (1 oración)
+- cta: texto exacto del CTA (frase corta)
+- summary: qué es el contenido (1 oración)
 
-## FECHAS RELEVANTES — ${monthName}
-${ecuadorDates}
-
-## INSTRUCCIONES
-Genera exactamente ${plan.piecesCount || 12} momentos de contenido. Para CADA momento, genera EXACTAMENTE 3 ideas diferenciadas:
-1. **disruptiva** — sorpresiva, interrumpe el scroll, elemento inesperado o contraintuitivo
-2. **aspiracional** — conecta emocionalmente con la identidad o sueños de la audiencia
-3. **racional** — informativa, datos concretos, responde "¿por qué yo?"
-
-Para el hook de cada idea incluye un prompt específico para Higgsfield (herramienta de generación de video IA) describiendo el arranque visual de los primeros 3 segundos.
-
-Responde ÚNICAMENTE con un JSON válido, sin texto adicional:
-[
-  {
-    "temporality": "Semana 1 — Lunes 6",
-    "scheduled_date": "${plan.year}-${String(plan.month).padStart(2,'0')}-06",
-    "funnel_stage": "awareness",
-    "channel": "Instagram",
-    "target_emotion": "Curiosidad",
-    "ideas": [
-      {
-        "type": "disruptiva",
-        "name": "Nombre corto (4 palabras máx)",
-        "summary": "Una oración que describe el contenido",
-        "content_type": "Reel",
-        "funnel_objective": "Captar atención de audiencia fría",
-        "hook": "Primeros 3s: descripción exacta del arranque visual o de texto que detiene el scroll",
-        "hook_type": "Visual",
-        "higgsfield_prompt": "Descripción visual detallada para generar el hook: cámara, movimiento, sujeto, acción, atmósfera",
-        "development": "Zona segura superior: logo. Mensaje central: [texto]. Zona segura inferior: CTA.",
-        "cta": "Texto exacto del call to action",
-        "kpi": "Métrica principal: reproducciones y alcance",
-        "why_works": "Por qué esta idea funciona para esta audiencia en este momento del mes",
-        "benchmark_reference": "Estilo de contenido de referencia (sin nombrar marcas)"
-      },
-      {
-        "type": "aspiracional",
-        ...
-      },
-      {
-        "type": "racional",
-        ...
-      }
-    ]
-  }
-]
-
-Genera los ${plan.piecesCount || 12} momentos distribuidos estratégicamente a lo largo del mes según el brief aprobado.`
+JSON exacto (sin texto extra):
+[{"temporality":"Semana 1 — Lunes ${plan.month === 1 ? '6' : '3'}","scheduled_date":"${plan.year}-${String(plan.month).padStart(2,'0')}-${plan.month === 1 ? '06' : '03'}","funnel_stage":"awareness","channel":"Instagram","target_emotion":"Curiosidad","ideas":[{"type":"disruptiva","name":"Nombre 4 palabras","summary":"Qué es el contenido.","hook":"Primeros 3s: [arranque visual].","higgsfield_prompt":"[descripción visual para generar hook].","cta":"Texto del CTA"},{"type":"aspiracional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","cta":"..."},{"type":"racional","name":"...","summary":"...","hook":"...","higgsfield_prompt":"...","cta":"..."}]}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 8000,
-      system: 'You are a JSON generator for a content planning tool. Respond ONLY with a valid JSON array. No markdown, no explanation, no code blocks. Start your response with [ and end with ].',
+      max_tokens: 4500,
+      system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -166,16 +113,16 @@ Genera los ${plan.piecesCount || 12} momentos distribuidos estratégicamente a l
           type: idea.type as IdeaType,
           name: idea.name,
           summary: idea.summary,
-          contentType: idea.content_type,
-          funnelObjective: idea.funnel_objective,
+          contentType: '',
+          funnelObjective: '',
           hook: idea.hook,
-          hookType: idea.hook_type,
+          hookType: '',
           higgsfieldPrompt: idea.higgsfield_prompt,
-          development: idea.development,
+          development: '',
           cta: idea.cta,
-          kpi: idea.kpi,
-          whyWorks: idea.why_works,
-          benchmarkReference: idea.benchmark_reference,
+          kpi: '',
+          whyWorks: '',
+          benchmarkReference: '',
         })),
       }
       return {
