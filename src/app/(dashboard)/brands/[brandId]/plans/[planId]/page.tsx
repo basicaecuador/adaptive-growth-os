@@ -142,34 +142,42 @@ function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: nu
   const isCarousel = /carrusel|carousel/i.test(format)
   const isVertical = /historia|story/i.test(format)
 
-  let visualDesc = ''
-  let contextHint = ''
+  const parts: string[] = [style.modifier]
 
   if (isCarousel) {
     const slides = parseSlides(idea.development ?? '')
     const slide = slides[segmentIdx]
     if (slide) {
-      visualDesc = slide.visual
+      // Use the actual slide text that was already generated
+      parts.push(`${slide.label}: "${slide.text}"`)
+      if (slide.visual) parts.push(`Visual: ${slide.visual}`)
       const isFirst = segmentIdx === 0
       const isLast = segmentIdx === slides.length - 1
-      contextHint = isFirst
-        ? 'hook slide, stop-scroll visual impact in first 3 seconds'
+      parts.push(isFirst
+        ? 'Hook slide — parar el scroll en los primeros 3 segundos, impacto visual fuerte'
         : isLast
-        ? 'CTA slide, clear call-to-action moment, brand visible'
-        : 'information slide, clean readable composition'
+        ? 'Slide CTA — llamada a la acción clara, marca visible'
+        : 'Slide de información — composición limpia y legible')
+    } else {
+      // Fallback to hook if slides can't be parsed
+      parts.push(`Hook: "${idea.hook}"`)
     }
+  } else {
+    // Post or any other static format — use the full generated content
+    parts.push(`Hook: "${idea.hook}"`)
+    const visualMatch = (idea.development ?? '').match(/VISUAL:\s*([^\n]+)/i)
+    if (visualMatch?.[1]) parts.push(`Visual: ${visualMatch[1].trim()}`)
+    if (idea.cta) parts.push(`CTA: "${idea.cta}"`)
   }
 
-  if (!visualDesc) {
-    const m = (idea.development ?? '').match(/VISUAL:\s*([^\n]+)/i)
-    visualDesc = m?.[1]?.trim() ?? idea.hook ?? ''
-  }
+  parts.push(
+    isVertical
+      ? 'Formato vertical 9:16, sujeto centrado alejado del 15% superior e inferior (safe zone)'
+      : 'Formato cuadrado 1:1, sujeto centrado en el encuadre',
+    'Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop, contenido listo para redes sociales'
+  )
 
-  const aspectHint = isVertical
-    ? 'vertical 9:16 portrait format, main subject centered away from top and bottom 15% safe zones'
-    : 'square 1:1 format, subject centered in frame'
-
-  return `${style.modifier}. ${visualDesc}. ${contextHint ? contextHint + '. ' : ''}${aspectHint}. No text overlays, no watermarks, high resolution, thumb-stop composition, brand-ready social media content.`
+  return parts.join('. ')
 }
 
 function CreativeTools({
