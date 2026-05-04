@@ -109,6 +109,69 @@ const FUNNEL_FOCUS_OPTIONS = [
 
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
+const VISUAL_STYLES = [
+  { id: 'fotorealista' as const, label: 'Fotorealista', desc: 'Foto comercial', modifier: 'ultra-realistic commercial photography, natural daylight, sharp focus, Canon DSLR quality' },
+  { id: 'cinematico' as const, label: 'Cine', desc: 'Luz dramática', modifier: 'cinematic film photography, dramatic moody lighting, shallow depth of field, movie still' },
+  { id: 'ilustracion' as const, label: 'Ilustración', desc: 'Digital art', modifier: 'professional digital illustration, bold vibrant colors, editorial graphic style' },
+  { id: '3d' as const, label: '3D', desc: 'CGI render', modifier: 'photorealistic 3D CGI render, studio product lighting, clean background, octane quality' },
+  { id: 'minimalista' as const, label: 'Minimal', desc: 'Clean & simple', modifier: 'minimalist photography, clean light background, product focus, lots of white space' },
+]
+type VisualStyleId = typeof VISUAL_STYLES[number]['id']
+
+function parseSlides(development: string): { label: string; visual: string; text: string }[] {
+  const results: { label: string; visual: string; text: string }[] = []
+  for (const line of development.split('\n')) {
+    const m = line.match(/^(S\d+)[^:]*:\s*(.+?)\s*\|\s*Visual:\s*(.+)$/i)
+    if (m) results.push({ label: m[1].toUpperCase(), text: m[2].trim(), visual: m[3].trim() })
+  }
+  return results
+}
+
+function parseScenes(development: string): { label: string; visual: string; voice: string }[] {
+  const results: { label: string; visual: string; voice: string }[] = []
+  for (const line of development.split('\n')) {
+    const m = line.match(/^(ESC\d+)[^:]*:\s*Visual:\s*([^|]+?)(?:\s*\|\s*Voz:\s*(.+))?$/i)
+    if (m) results.push({ label: m[1].toUpperCase(), visual: m[2].trim(), voice: (m[3] ?? '').trim() })
+  }
+  return results
+}
+
+function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: number): string {
+  const style = VISUAL_STYLES.find(s => s.id === styleId)!
+  const format = idea.contentType ?? 'Post'
+  const isCarousel = /carrusel|carousel/i.test(format)
+  const isVertical = /historia|story/i.test(format)
+
+  let visualDesc = ''
+  let contextHint = ''
+
+  if (isCarousel) {
+    const slides = parseSlides(idea.development ?? '')
+    const slide = slides[segmentIdx]
+    if (slide) {
+      visualDesc = slide.visual
+      const isFirst = segmentIdx === 0
+      const isLast = segmentIdx === slides.length - 1
+      contextHint = isFirst
+        ? 'hook slide, stop-scroll visual impact in first 3 seconds'
+        : isLast
+        ? 'CTA slide, clear call-to-action moment, brand visible'
+        : 'information slide, clean readable composition'
+    }
+  }
+
+  if (!visualDesc) {
+    const m = (idea.development ?? '').match(/VISUAL:\s*([^\n]+)/i)
+    visualDesc = m?.[1]?.trim() ?? idea.hook ?? ''
+  }
+
+  const aspectHint = isVertical
+    ? 'vertical 9:16 portrait format, main subject centered away from top and bottom 15% safe zones'
+    : 'square 1:1 format, subject centered in frame'
+
+  return `${style.modifier}. ${visualDesc}. ${contextHint ? contextHint + '. ' : ''}${aspectHint}. No text overlays, no watermarks, high resolution, thumb-stop composition, brand-ready social media content.`
+}
+
 function CreativeTools({
   idea,
   planId,
@@ -121,22 +184,37 @@ function CreativeTools({
   compact?: boolean
 }) {
   const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
+  const isCarousel = /carrusel|carousel/i.test(idea.contentType ?? '')
   const isGoogle = /google/i.test(idea.contentType ?? '')
   const isStatic = !isVideo && !isGoogle
 
   const [copied, setCopied] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [visualStyle, setVisualStyle] = useState<VisualStyleId>('fotorealista')
+  const [segmentIdx, setSegmentIdx] = useState(0)
+  const [promptText, setPromptText] = useState('')
+  const [promptReady, setPromptReady] = useState(false)
+
   const { mutateAsync: generateImage, isPending: generatingImage } = useGenerateImage(planId)
 
-  function copyPrompt(text: string) {
+  const slides = isCarousel ? parseSlides(idea.development ?? '') : []
+  const scenes = isVideo ? parseScenes(idea.development ?? '') : []
+
+  function copyText(text: string) {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
 
+  function handlePreparePrompt() {
+    const prompt = buildDallePrompt(idea, visualStyle, segmentIdx)
+    setPromptText(prompt)
+    setPromptReady(true)
+  }
+
   async function handleGenerateImage() {
     try {
-      const result = await generateImage({ itemId })
+      const result = await generateImage({ itemId, prompt: promptText })
       setImageUrl(result.imageUrl)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar imagen')
@@ -144,18 +222,29 @@ function CreativeTools({
   }
 
   return (
-    <div className={`rounded-xl border border-border bg-muted/30 p-4 space-y-3 ${compact ? 'text-xs' : ''}`}>
+    <div className={`rounded-xl border border-border bg-muted/30 p-4 space-y-4 ${compact ? 'text-xs' : ''}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Herramientas de producción
       </p>
       <div className="flex items-start gap-4">
         {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex-1 min-w-0 space-y-4">
+
+          {/* Video: Higgsfield prompt */}
           {isVideo && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Prompt para Higgsfield IA
               </p>
+              {scenes.length > 0 && (
+                <div className="flex gap-1 flex-wrap mb-2">
+                  {scenes.map((sc) => (
+                    <span key={sc.label} className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {sc.label}
+                    </span>
+                  ))}
+                </div>
+              )}
               {idea.higgsfieldPrompt && (
                 <p className="text-xs text-foreground/80 italic leading-relaxed bg-black/[0.04] rounded-lg px-3 py-2">
                   {idea.higgsfieldPrompt}
@@ -164,7 +253,7 @@ function CreativeTools({
               <div className="flex gap-2 flex-wrap">
                 {idea.higgsfieldPrompt && (
                   <button
-                    onClick={() => copyPrompt(idea.higgsfieldPrompt!)}
+                    onClick={() => copyText(idea.higgsfieldPrompt!)}
                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     <Copy className="h-3 w-3" />
@@ -184,34 +273,120 @@ function CreativeTools({
             </div>
           )}
 
+          {/* Static image generation with prompt preview */}
           {isStatic && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Generar imagen con IA
               </p>
-              <Button
-                onClick={handleGenerateImage}
-                disabled={generatingImage}
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {generatingImage ? 'Generando imagen...' : imageUrl ? 'Regenerar imagen' : 'Generar con DALL-E 3'}
-              </Button>
-              {generatingImage && (
-                <p className="text-[11px] text-muted-foreground animate-pulse">
-                  DALL-E 3 está creando la imagen en alta resolución...
-                </p>
+
+              {/* Style selector */}
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1.5">Estilo visual</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {VISUAL_STYLES.map(style => (
+                    <button
+                      key={style.id}
+                      onClick={() => { setVisualStyle(style.id); setPromptReady(false) }}
+                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
+                        visualStyle === style.id
+                          ? 'border-foreground bg-foreground text-background'
+                          : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                      }`}
+                    >
+                      <span className="block text-xs font-medium">{style.label}</span>
+                      <span className={`block text-[9px] mt-0.5 ${visualStyle === style.id ? 'opacity-70' : 'opacity-50'}`}>
+                        {style.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slide selector for carousel */}
+              {isCarousel && slides.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1.5">Slide a generar</p>
+                  <div className="flex gap-1 flex-wrap">
+                    {slides.map((slide, i) => (
+                      <button
+                        key={slide.label}
+                        onClick={() => { setSegmentIdx(i); setPromptReady(false) }}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          segmentIdx === i
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-background text-muted-foreground hover:border-foreground/40'
+                        }`}
+                      >
+                        {slide.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-              {imageUrl && (
+
+              {/* Prepare prompt or editable prompt */}
+              {!promptReady ? (
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={handlePreparePrompt}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Preparar prompt
+                  </Button>
+                  <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+                </div>
+              ) : (
                 <div className="space-y-2">
+                  <p className="text-[10px] text-muted-foreground">Prompt para DALL-E 3 — edítalo antes de generar</p>
+                  <textarea
+                    value={promptText}
+                    onChange={e => setPromptText(e.target.value)}
+                    rows={5}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none leading-relaxed"
+                  />
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Button
+                      onClick={handleGenerateImage}
+                      disabled={generatingImage || !promptText.trim()}
+                      size="sm"
+                      className="gap-1.5"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con DALL-E 3'}
+                    </Button>
+                    <button
+                      onClick={() => { setPromptReady(false); setImageUrl(null) }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Cambiar estilo
+                    </button>
+                    <button
+                      onClick={() => copyText(promptText)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copied ? 'Copiado' : 'Copiar prompt'}
+                    </button>
+                  </div>
+                  {generatingImage && (
+                    <p className="text-[11px] text-muted-foreground animate-pulse">
+                      DALL-E 3 está creando la imagen en alta resolución...
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {imageUrl && (
+                <div className="space-y-2 pt-1">
                   <img
                     src={imageUrl}
                     alt="Imagen generada"
                     className="rounded-xl border border-border w-full max-w-sm object-cover shadow-sm"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <a
                       href={imageUrl}
                       target="_blank"
@@ -223,11 +398,6 @@ function CreativeTools({
                     </a>
                     <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
                   </div>
-                </div>
-              )}
-              {!imageUrl && (
-                <div className="mt-1">
-                  <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
                 </div>
               )}
             </div>

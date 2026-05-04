@@ -32,7 +32,7 @@ function buildImagePrompt(development: string, format: string, hook: string): st
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ planId: string; itemId: string }> },
 ) {
   try {
@@ -40,6 +40,9 @@ export async function POST(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { planId, itemId } = await params
+    const body = await req.json().catch(() => ({}))
+    const customPrompt: string | undefined = body?.prompt || undefined
+
     const db = createAdminClient()
 
     const { data: item, error } = await db
@@ -55,14 +58,18 @@ export async function POST(
       ideas: Array<{ development: string; contentType: string; hook: string }>
     } | null
 
-    const idea = rawIdeas?.ideas?.[0]
-    if (!idea) return NextResponse.json({ error: 'No hay idea generada para esta pieza' }, { status: 400 })
-
-    const format = idea.contentType ?? 'Post'
-    const isVertical = /historia|story/i.test(format)
+    const formatFromIdea = rawIdeas?.ideas?.[0]?.contentType ?? 'Post'
+    const isVertical = /historia|story/i.test(formatFromIdea)
     const size = isVertical ? '1024x1792' : '1024x1024'
 
-    const prompt = buildImagePrompt(idea.development, format, idea.hook)
+    let prompt: string
+    if (customPrompt) {
+      prompt = customPrompt
+    } else {
+      const idea = rawIdeas?.ideas?.[0]
+      if (!idea) return NextResponse.json({ error: 'No hay idea generada para esta pieza' }, { status: 400 })
+      prompt = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
+    }
 
     const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',

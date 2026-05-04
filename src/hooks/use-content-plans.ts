@@ -165,9 +165,11 @@ export function useProducePlan(planId: string) {
 
 export function useGenerateImage(planId: string) {
   return useMutation({
-    mutationFn: async ({ itemId }: { itemId: string }) => {
+    mutationFn: async ({ itemId, prompt }: { itemId: string; prompt?: string }) => {
       const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/generate-image`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
       })
       if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar imagen'))
       const { data } = await res.json()
