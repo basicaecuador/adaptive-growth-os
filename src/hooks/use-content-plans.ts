@@ -163,6 +163,19 @@ export function useProducePlan(planId: string) {
   })
 }
 
+export function useGenerateImage(planId: string) {
+  return useMutation({
+    mutationFn: async ({ itemId }: { itemId: string }) => {
+      const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/generate-image`, {
+        method: 'POST',
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar imagen'))
+      const { data } = await res.json()
+      return data as { imageUrl: string }
+    },
+  })
+}
+
 export function useUpdatePlanItem(planId: string) {
   const qc = useQueryClient()
   return useMutation({

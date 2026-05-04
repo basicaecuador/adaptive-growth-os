@@ -14,6 +14,7 @@ import {
   useUpdatePlanItem,
   useRefineIdea,
   useProducePlan,
+  useGenerateImage,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
 import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType } from '@/types/domain'
@@ -108,17 +109,38 @@ const FUNNEL_FOCUS_OPTIONS = [
 
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
-function CreativeTools({ idea, compact = false }: { idea: PlanIdea; compact?: boolean }) {
+function CreativeTools({
+  idea,
+  planId,
+  itemId,
+  compact = false,
+}: {
+  idea: PlanIdea
+  planId: string
+  itemId: string
+  compact?: boolean
+}) {
   const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
   const isGoogle = /google/i.test(idea.contentType ?? '')
   const isStatic = !isVideo && !isGoogle
 
   const [copied, setCopied] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const { mutateAsync: generateImage, isPending: generatingImage } = useGenerateImage(planId)
 
   function copyPrompt(text: string) {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function handleGenerateImage() {
+    try {
+      const result = await generateImage({ itemId })
+      setImageUrl(result.imageUrl)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al generar imagen')
+    }
   }
 
   return (
@@ -128,23 +150,27 @@ function CreativeTools({ idea, compact = false }: { idea: PlanIdea; compact?: bo
       </p>
       <div className="flex items-start gap-4">
         {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
-        <div className="flex-1 min-w-0 space-y-2">
-          {isVideo && idea.higgsfieldPrompt && (
+        <div className="flex-1 min-w-0 space-y-3">
+          {isVideo && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Prompt Higgsfield IA
+                Prompt para Higgsfield IA
               </p>
-              <p className="text-xs text-foreground/80 italic leading-relaxed bg-black/[0.04] rounded-lg px-3 py-2">
-                {idea.higgsfieldPrompt}
-              </p>
+              {idea.higgsfieldPrompt && (
+                <p className="text-xs text-foreground/80 italic leading-relaxed bg-black/[0.04] rounded-lg px-3 py-2">
+                  {idea.higgsfieldPrompt}
+                </p>
+              )}
               <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => copyPrompt(idea.higgsfieldPrompt!)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Copy className="h-3 w-3" />
-                  {copied ? 'Copiado' : 'Copiar prompt'}
-                </button>
+                {idea.higgsfieldPrompt && (
+                  <button
+                    onClick={() => copyPrompt(idea.higgsfieldPrompt!)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Copy className="h-3 w-3" />
+                    {copied ? 'Copiado' : 'Copiar prompt'}
+                  </button>
+                )}
                 <a
                   href="https://higgsfield.ai/create"
                   target="_blank"
@@ -157,30 +183,56 @@ function CreativeTools({ idea, compact = false }: { idea: PlanIdea; compact?: bo
               </div>
             </div>
           )}
-          {isVideo && !idea.higgsfieldPrompt && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Generar con IA
-              </p>
-              <a
-                href="https://higgsfield.ai/create"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                Abrir Higgsfield para el reel
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          )}
+
           {isStatic && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Diseñar pieza
+                Generar imagen con IA
               </p>
-              <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+              <Button
+                onClick={handleGenerateImage}
+                disabled={generatingImage}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {generatingImage ? 'Generando imagen...' : imageUrl ? 'Regenerar imagen' : 'Generar con DALL-E 3'}
+              </Button>
+              {generatingImage && (
+                <p className="text-[11px] text-muted-foreground animate-pulse">
+                  DALL-E 3 está creando la imagen en alta resolución...
+                </p>
+              )}
+              {imageUrl && (
+                <div className="space-y-2">
+                  <img
+                    src={imageUrl}
+                    alt="Imagen generada"
+                    className="rounded-xl border border-border w-full max-w-sm object-cover shadow-sm"
+                  />
+                  <div className="flex gap-2">
+                    <a
+                      href={imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Abrir en tamaño completo
+                    </a>
+                    <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+                  </div>
+                </div>
+              )}
+              {!imageUrl && (
+                <div className="mt-1">
+                  <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+                </div>
+              )}
             </div>
           )}
+
           {isGoogle && (
             <p className="text-xs text-muted-foreground">
               Copia el texto del anuncio y créalo en Google Ads Manager.
@@ -993,7 +1045,7 @@ export default function PlanDetailPage({ params }: Props) {
               </div>
             )}
 
-            <CreativeTools idea={displayIdea} />
+            <CreativeTools idea={displayIdea} planId={planId} itemId={reviewItemId!} />
           </div>
         )}
       </div>
@@ -1282,7 +1334,7 @@ export default function PlanDetailPage({ params }: Props) {
                   <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
                     {item.observations}
                   </p>
-                  {idea && <CreativeTools idea={idea} compact />}
+                  {idea && <CreativeTools idea={idea} planId={planId} itemId={item.id} compact />}
                 </div>
               </div>
             )
