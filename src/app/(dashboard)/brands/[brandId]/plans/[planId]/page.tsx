@@ -141,43 +141,43 @@ function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: nu
   const format = idea.contentType ?? 'Post'
   const isCarousel = /carrusel|carousel/i.test(format)
   const isVertical = /historia|story/i.test(format)
+  const development = (idea.development ?? '').trim()
 
-  const parts: string[] = [style.modifier]
+  const technical = isVertical
+    ? 'Formato vertical 9:16, sujeto centrado alejado del 15% superior e inferior (safe zone). Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop.'
+    : 'Formato cuadrado 1:1, sujeto centrado en el encuadre. Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop.'
 
   if (isCarousel) {
-    const slides = parseSlides(idea.development ?? '')
+    const slides = parseSlides(development)
     const slide = slides[segmentIdx]
-    if (slide) {
-      // Use the actual slide text that was already generated
-      parts.push(`${slide.label}: "${slide.text}"`)
-      if (slide.visual) parts.push(`Visual: ${slide.visual}`)
-      const isFirst = segmentIdx === 0
-      const isLast = segmentIdx === slides.length - 1
-      parts.push(isFirst
-        ? 'Hook slide — parar el scroll en los primeros 3 segundos, impacto visual fuerte'
-        : isLast
-        ? 'Slide CTA — llamada a la acción clara, marca visible'
-        : 'Slide de información — composición limpia y legible')
-    } else {
-      // Fallback to hook if slides can't be parsed
-      parts.push(`Hook: "${idea.hook}"`)
-    }
-  } else {
-    // Post or any other static format — use the full generated content
-    parts.push(`Hook: "${idea.hook}"`)
-    const visualMatch = (idea.development ?? '').match(/VISUAL:\s*([^\n]+)/i)
-    if (visualMatch?.[1]) parts.push(`Visual: ${visualMatch[1].trim()}`)
-    if (idea.cta) parts.push(`CTA: "${idea.cta}"`)
+
+    // Find the full raw line for this slide in the development (includes all effects/details)
+    const rawSlideLine = development
+      .split('\n')
+      .find(l => new RegExp(`^S${segmentIdx + 1}[^\\d]`, 'i').test(l.trim()))
+      ?.trim() ?? ''
+
+    const isFirst = segmentIdx === 0
+    const isLast = segmentIdx === slides.length - 1
+    const context = isFirst
+      ? 'Hook slide — parar el scroll en los primeros 3 segundos, impacto visual fuerte'
+      : isLast
+      ? 'Slide CTA — llamada a la acción clara, marca visible'
+      : 'Slide de información — composición limpia y legible'
+
+    const slideContent = rawSlideLine || (slide ? `${slide.label}: "${slide.text}" | Visual: ${slide.visual}` : `Hook: "${idea.hook}"`)
+
+    return `${style.modifier}.\n\nGuion del slide:\n${slideContent}\n\nContexto: ${context}.\n\n${technical}`
   }
 
-  parts.push(
-    isVertical
-      ? 'Formato vertical 9:16, sujeto centrado alejado del 15% superior e inferior (safe zone)'
-      : 'Formato cuadrado 1:1, sujeto centrado en el encuadre',
-    'Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop, contenido listo para redes sociales'
-  )
+  // Post / non-carousel: vuelca el guion completo que ya generó Claude
+  const lines = [
+    `Hook: "${idea.hook}"`,
+    development,
+    idea.cta ? `CTA: "${idea.cta}"` : '',
+  ].filter(Boolean).join('\n')
 
-  return parts.join('. ')
+  return `${style.modifier}.\n\nGuion completo generado:\n${lines}\n\n${technical}`
 }
 
 function CreativeTools({
@@ -353,8 +353,8 @@ function CreativeTools({
                   <textarea
                     value={promptText}
                     onChange={e => setPromptText(e.target.value)}
-                    rows={5}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none leading-relaxed"
+                    rows={10}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
                   />
                   <div className="flex gap-2 flex-wrap items-center">
                     <Button
