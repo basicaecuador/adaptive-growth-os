@@ -53,28 +53,28 @@ function BrandCard({ brand }: { brand: Brand }) {
           </div>
         </div>
 
-        {/* Primary action: Plan de contenidos */}
+        {/* Primary action: Configurar marca */}
         <Link
-          href={`/brands/${brand.id}/plans`}
+          href={`/brands/${brand.id}`}
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-white transition-colors hover:opacity-90"
           style={{ backgroundColor: color }}
         >
-          <LayoutList className="h-4 w-4 shrink-0" />
+          <Settings2 className="h-4 w-4 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold leading-none">Plan de contenidos</p>
-            <p className="mt-0.5 text-[11px] opacity-80">Ver y crear planes mensuales</p>
+            <p className="text-sm font-semibold leading-none">Configurar marca</p>
+            <p className="mt-0.5 text-[11px] opacity-80">Voz, tono, colores y más</p>
           </div>
         </Link>
 
-        {/* Secondary action: Configurar marca */}
+        {/* Secondary action: Plan de contenidos */}
         <Link
-          href={`/brands/${brand.id}`}
+          href={`/brands/${brand.id}/plans`}
           className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
         >
-          <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <LayoutList className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground leading-none">Configurar marca</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Voz, tono, colores y más</p>
+            <p className="text-sm font-medium text-foreground leading-none">Plan de contenidos</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Ver y crear planes mensuales</p>
           </div>
         </Link>
       </div>
