@@ -50,6 +50,7 @@ type RawPiece = {
   motivator: string
   creative_reference: string
   native_resource: string
+  alternate_ctas: Array<{ method: string; cta: string; closing: string }>
   higgsfield_prompt: string
   content: string
   cta: string
@@ -79,9 +80,13 @@ export async function POST(
     const piecesPerProduct = dist.awareness + dist.consideration + dist.conversion + dist.remarketing
     const totalPieces = numProducts * piecesPerProduct
 
-    const productsDetail = products.map((p, i) =>
-      `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${p.leadMethod ? ` — captura de lead via: ${p.leadMethod}` : ''}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
-    ).join('\n')
+    const productsDetail = products.map((p, i) => {
+      const methods = p.leadMethods?.length ? p.leadMethods : p.leadMethod ? [p.leadMethod] : []
+      const methodText = methods.length === 0 ? ''
+        : methods.length === 1 ? ` — captura de lead via: ${methods[0]}`
+        : ` — captura de lead via MÚLTIPLES MÉTODOS: ${methods.join(', ')} → generar alternate_ctas con un cierre por método`
+      return `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${methodText}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
+    }).join('\n')
 
     const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
     const mm = String(plan.month).padStart(2, '0')
@@ -127,13 +132,22 @@ TOTAL: ${numProducts} producto(s) × ${piecesPerProduct} = ${totalPieces} piezas
 Genera UNA idea por pieza, completamente desarrollada y lista para producción.
 FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
 
-CAPTURA DE LEADS: Si un producto especifica "captura de lead via", adapta el CTA y la mecánica de conversión:
-- Formulario de Meta → CTA directo al formulario nativo, no necesita salir de la app, texto: "Completa el formulario" / "Regístrate aquí"
-- Landing page → CTA de tráfico: "Visita nuestra web" / "Ver más en [dominio]", incluye URL display
-- WhatsApp → CTA: "Escríbenos al WhatsApp" / "Chatea con nosotros", número o link wa.me
+CAPTURA DE LEADS:
+Un solo método → adapta el CTA y la mecánica de conversión al método indicado:
+- Formulario de Meta → CTA: "Completa el formulario" / "Regístrate aquí" (nativo Meta, sin salir de la app)
+- Landing page → CTA: "Visita nuestra web" / "Ver más en [dominio]" (incluye URL display)
+- WhatsApp → CTA: "Escríbenos al WhatsApp" / "Chatea con nosotros" (link wa.me)
 - Messenger → CTA: "Envíanos un mensaje" / "Habla con nosotros por Messenger"
 - DM de Instagram → CTA: "Escríbenos un DM" / "Mándanos un mensaje"
 - Llamada telefónica → CTA: "Llámanos" / "Habla con un asesor"
+
+MÚLTIPLES MÉTODOS → la idea es la MISMA pero con cierres alternativos:
+- La idea, el hook, el desarrollo y la narrativa son idénticos para todos los cierres.
+- Genera el campo cta con el CTA del primer método.
+- Genera el campo alternate_ctas: un array con UN objeto por cada método seleccionado.
+  Formato: [{"method":"WhatsApp","cta":"Escríbenos al WhatsApp","closing":"[descripción de la última escena/slide con ese CTA específico]"}, ...]
+- Cada closing describe cómo cambia solo la escena final (visual + texto en pantalla + voz) para ese canal de captura.
+- El cliente elige cuál versión publicar según el canal activo del día.
 
 REGLAS DE PLATAFORMA META (obligatorio para Reel/Historia/Carrusel/Post):
 1. FORMATO 9:16: Todo contenido social es vertical. Texto y marca en zona segura central (evitar 15% superior e inferior).
@@ -242,6 +256,7 @@ JSON — solo el array sin markdown:
           motivator: raw.motivator || '',
           creativeReference: raw.creative_reference || '',
           nativeResource: raw.native_resource || '',
+          alternateCtas: raw.alternate_ctas || [],
           higgsfieldPrompt: raw.higgsfield_prompt || '',
           development: raw.content,
           cta: raw.cta,

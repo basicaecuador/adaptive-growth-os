@@ -81,7 +81,8 @@ export interface PlanProduct {
   description: string
   objective: string
   websiteUrl?: string
-  leadMethod?: string
+  leadMethod?: string    // legacy — single method
+  leadMethods?: string[] // multi-select — when set, takes precedence
 }
 
 export interface PlanIdea {

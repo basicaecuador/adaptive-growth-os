@@ -46,18 +46,28 @@ function getNextMonth() {
   return { month: next, year: now.getFullYear() }
 }
 
-function LeadMethodSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function LeadMethodSelector({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   return (
     <div className="space-y-2 pt-1">
-      <p className="text-xs font-medium text-foreground">¿Cómo capturas los leads?</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-foreground">¿Cómo capturas los leads?</p>
+        {value.length > 0 && (
+          <span className="text-[10px] text-muted-foreground">{value.length} seleccionado{value.length > 1 ? 's' : ''}</span>
+        )}
+      </div>
+      {value.length > 1 && (
+        <p className="text-[10px] text-violet-600 dark:text-violet-400 leading-snug">
+          Con múltiples métodos se generará una misma idea con {value.length} cierres alternativos, uno por canal.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {LEAD_METHODS.map(({ id, icon: Icon, description }) => {
-          const active = value === id
+          const active = value.includes(id)
           return (
             <button
               key={id}
               type="button"
-              onClick={() => onChange(active ? '' : id)}
+              onClick={() => onChange(active ? value.filter(v => v !== id) : [...value, id])}
               className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-all ${
                 active
                   ? 'border-foreground bg-foreground/5 ring-1 ring-foreground/20'
@@ -91,19 +101,19 @@ export default function PlansPage({ params }: Props) {
   const [month, setMonth] = useState(defaults.month)
   const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
-  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
+  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
 
   function resetForm() {
     const d = getNextMonth()
     setMonth(d.month)
     setYear(d.year)
     setContext('')
-    setProducts([{ name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
+    setProducts([{ name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
     setShowForm(false)
   }
 
   function addProduct() {
-    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '', leadMethod: '' }])
+    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
   }
 
   function removeProduct(i: number) {
@@ -114,9 +124,13 @@ export default function PlansPage({ params }: Props) {
     setProducts(p => p.map((prod, idx) => {
       if (idx !== i) return prod
       const updated = { ...prod, [field]: value }
-      if (field === 'objective' && value !== 'Generar leads') updated.leadMethod = ''
+      if (field === 'objective' && value !== 'Generar leads') updated.leadMethods = []
       return updated
     }))
+  }
+
+  function updateLeadMethods(i: number, methods: string[]) {
+    setProducts(p => p.map((prod, idx) => idx !== i ? prod : { ...prod, leadMethods: methods }))
   }
 
   async function handleCreate() {
@@ -270,12 +284,12 @@ export default function PlansPage({ params }: Props) {
                       </div>
                     </div>
 
-                    {/* Lead method — only when "Generar leads" */}
+                    {/* Lead methods — only when "Generar leads" */}
                     {prod.objective === 'Generar leads' && (
                       <div className="rounded-lg border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 dark:border-violet-900 p-3">
                         <LeadMethodSelector
-                          value={prod.leadMethod ?? ''}
-                          onChange={v => updateProduct(i, 'leadMethod', v)}
+                          value={prod.leadMethods ?? []}
+                          onChange={methods => updateLeadMethods(i, methods)}
                         />
                       </div>
                     )}
