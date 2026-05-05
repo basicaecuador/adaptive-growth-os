@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -164,16 +164,20 @@ export function useProducePlan(planId: string) {
 }
 
 export function useGenerateImage(planId: string) {
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ itemId, prompt, model }: { itemId: string; prompt?: string; model?: string }) => {
+    mutationFn: async ({ itemId, prompt, model, targetFormat }: { itemId: string; prompt?: string; model?: string; targetFormat?: AdFormat }) => {
       const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/generate-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model }),
+        body: JSON.stringify({ prompt, model, targetFormat }),
       })
       if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar imagen'))
       const { data } = await res.json()
-      return data as { imageUrl: string }
+      return data as { imageUrl: string; asset: GeneratedAsset }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content-plan', planId] })
     },
   })
 }

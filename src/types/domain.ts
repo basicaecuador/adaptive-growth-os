@@ -63,6 +63,19 @@ export type PlanItemStatus = 'draft' | 'approved' | 'rejected'
 
 export type IdeaType = 'disruptiva' | 'aspiracional' | 'racional'
 
+export type AdFormat = 'square' | 'story' | 'landscape'
+
+export interface GeneratedAsset {
+  format: AdFormat
+  label: string
+  url: string
+  storageKey: string
+  model: string
+  width: number
+  height: number
+  generatedAt: string
+}
+
 export interface PlanProduct {
   name: string
   description: string
@@ -133,6 +146,8 @@ export interface ContentPlanItem {
   sortOrder: number
   rawIdeas: PlanIdeaSet | null
   selectedIdeaType: IdeaType | null
+  generatedAssets: GeneratedAsset[]
+  productionApproved: boolean
 }
 
 export interface ContentItem {

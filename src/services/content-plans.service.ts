@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdeaSet, FunnelStage, PlanItemStatus, IdeaType } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdeaSet, FunnelStage, PlanItemStatus, IdeaType, GeneratedAsset } from '@/types/domain'
 
 type PlanRow = {
   id: string
@@ -37,6 +37,8 @@ type PlanItemRow = {
   sort_order: number
   raw_ideas: unknown
   selected_idea_type: string | null
+  generated_assets: unknown
+  production_approved: boolean
   created_at: string
   updated_at: string
 }
@@ -80,6 +82,8 @@ function toPlanItem(row: PlanItemRow): ContentPlanItem {
     sortOrder: row.sort_order,
     rawIdeas: (row.raw_ideas as PlanIdeaSet | null) ?? null,
     selectedIdeaType: (row.selected_idea_type as IdeaType | null) ?? null,
+    generatedAssets: (row.generated_assets as GeneratedAsset[]) ?? [],
+    productionApproved: row.production_approved ?? false,
   }
 }
 
@@ -223,6 +227,8 @@ export async function updatePlanItem(
   if (patch.status !== undefined) update.status = patch.status
   if (patch.rawIdeas !== undefined) update.raw_ideas = patch.rawIdeas
   if (patch.selectedIdeaType !== undefined) update.selected_idea_type = patch.selectedIdeaType
+  if (patch.generatedAssets !== undefined) update.generated_assets = patch.generatedAssets
+  if (patch.productionApproved !== undefined) update.production_approved = patch.productionApproved
 
   const { data, error } = await supabase
     .from('content_plan_items')

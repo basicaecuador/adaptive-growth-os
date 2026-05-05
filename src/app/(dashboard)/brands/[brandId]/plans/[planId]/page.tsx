@@ -2,7 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink, Film, Image, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SafeZonePreview } from '@/components/creative/safe-zone-preview'
 import { AdobeExpressBtn } from '@/components/creative/adobe-express-btn'
@@ -19,7 +19,7 @@ import {
   useHiggsfieldStatus,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
-import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType } from '@/types/domain'
+import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
 
 interface Props {
   params: Promise<{ brandId: string; planId: string }>
@@ -110,6 +110,13 @@ const FUNNEL_FOCUS_OPTIONS = [
 ]
 
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
+
+const AD_FORMATS: Record<AdFormat, { label: string; platforms: string; aspectClass: string; previewClass: string }> = {
+  square:    { label: 'Feed 1:1',       platforms: 'Instagram · Facebook · LinkedIn', aspectClass: 'aspect-square',    previewClass: 'max-w-[200px]' },
+  story:     { label: 'Story / Reel',   platforms: 'Instagram · TikTok · Facebook',   aspectClass: 'aspect-[9/16]',    previewClass: 'max-w-[120px]' },
+  landscape: { label: 'Paisaje 16:9',   platforms: 'Google · YouTube · LinkedIn',     aspectClass: 'aspect-video',     previewClass: 'max-w-[280px]' },
+}
+const AD_FORMAT_KEYS = Object.keys(AD_FORMATS) as AdFormat[]
 
 const IMAGE_MODELS = [
   { id: 'flux' as const, label: 'Flux 1.1 Pro', desc: 'Mejor calidad' },
@@ -206,31 +213,49 @@ function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: nu
   return parts
 }
 
+function getFormatIcon(contentType: string) {
+  if (VIDEO_FORMATS.some(f => contentType.toLowerCase().includes(f.toLowerCase())))
+    return <Film className="h-3 w-3 shrink-0" />
+  if (/carrusel|carousel/i.test(contentType))
+    return <Layers className="h-3 w-3 shrink-0" />
+  return <Image className="h-3 w-3 shrink-0" />
+}
+
 function CreativeTools({
   idea,
   planId,
   itemId,
-  compact = false,
+  persistedAssets = [],
 }: {
   idea: PlanIdea
   planId: string
   itemId: string
-  compact?: boolean
+  persistedAssets?: GeneratedAsset[]
 }) {
   const isVideo = VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase()))
   const isCarousel = /carrusel|carousel/i.test(idea.contentType ?? '')
   const isGoogle = /google/i.test(idea.contentType ?? '')
   const isStatic = !isVideo && !isGoogle
 
+  const defaultFormat: AdFormat = /historia|story/i.test(idea.contentType ?? '') ? 'story' : 'square'
+
   const [copied, setCopied] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [localAssets, setLocalAssets] = useState<GeneratedAsset[]>(persistedAssets)
+  const [selectedFormat, setSelectedFormat] = useState<AdFormat>(defaultFormat)
+  const [generatingFormats, setGeneratingFormats] = useState<Set<AdFormat>>(new Set())
   const [visualStyle, setVisualStyle] = useState<VisualStyleId>('fotorealista')
   const [generatorModel, setGeneratorModel] = useState<ImageModelId>('flux')
   const [segmentIdx, setSegmentIdx] = useState(0)
   const [promptText, setPromptText] = useState('')
-  const [promptReady, setPromptReady] = useState(false)
 
-  const { mutateAsync: generateImage, isPending: generatingImage } = useGenerateImage(planId)
+  useEffect(() => { setLocalAssets(persistedAssets) }, [persistedAssets])
+
+  useEffect(() => {
+    if (!isStatic) return
+    setPromptText(buildDallePrompt(idea, visualStyle, segmentIdx))
+  }, [idea, visualStyle, segmentIdx])
+
+  const { mutateAsync: generateImage } = useGenerateImage(planId)
   const { mutateAsync: generateVideo, isPending: generatingVideo } = useGenerateVideo(planId)
   const { mutateAsync: checkStatus } = useHiggsfieldStatus()
 
@@ -251,24 +276,22 @@ function CreativeTools({
     setTimeout(() => setCopied(false), 1500)
   }
 
-  function handlePreparePrompt() {
-    const development = idea.development ?? ''
-    const slides = isCarousel ? parseSlides(development) : []
-    const rawVisual = extractVisual(development, slides, segmentIdx, isCarousel).replace(/^\[|\]$/g, '')
-    const isIllustrationContent = /ilustración|flat|íconos|iconos|diseño gráfico|infografía/i.test(rawVisual)
-    if (isIllustrationContent) setVisualStyle('ilustracion')
-    const prompt = buildDallePrompt(idea, visualStyle, segmentIdx)
-    setPromptText(prompt)
-    setPromptReady(true)
-  }
-
-  async function handleGenerateImage() {
+  async function handleGenerateFormat(fmt: AdFormat) {
+    setGeneratingFormats(prev => new Set(prev).add(fmt))
     try {
-      const result = await generateImage({ itemId, prompt: promptText, model: generatorModel })
-      setImageUrl(result.imageUrl)
+      const result = await generateImage({ itemId, prompt: promptText, model: generatorModel, targetFormat: fmt })
+      if (result.asset) {
+        setLocalAssets(prev => [...prev.filter(a => a.format !== fmt), result.asset])
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar imagen')
+    } finally {
+      setGeneratingFormats(prev => { const next = new Set(prev); next.delete(fmt); return next })
     }
+  }
+
+  async function handleGenerateAll() {
+    await Promise.allSettled(AD_FORMAT_KEYS.map(fmt => handleGenerateFormat(fmt)))
   }
 
   function startPolling(jobId: string) {
@@ -328,7 +351,7 @@ function CreativeTools({
   }
 
   return (
-    <div className={`rounded-xl border border-border bg-muted/30 p-4 space-y-4 ${compact ? 'text-xs' : ''}`}>
+    <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-4">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Herramientas de producción
       </p>
@@ -462,21 +485,21 @@ function CreativeTools({
             </div>
           )}
 
-          {/* Static image generation with prompt preview */}
+          {/* Static image generation */}
           {isStatic && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Generar imagen con IA
               </p>
 
               {/* Model selector */}
               <div>
-                <p className="text-[10px] text-muted-foreground mb-1.5">Generador de imagen</p>
+                <p className="text-[10px] text-muted-foreground mb-1.5">Generador</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {IMAGE_MODELS.map(m => (
                     <button
                       key={m.id}
-                      onClick={() => { setGeneratorModel(m.id); setPromptReady(false) }}
+                      onClick={() => setGeneratorModel(m.id)}
                       className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
                         generatorModel === m.id
                           ? 'border-foreground bg-foreground text-background'
@@ -484,9 +507,7 @@ function CreativeTools({
                       }`}
                     >
                       <span className="block text-xs font-medium">{m.label}</span>
-                      <span className={`block text-[9px] mt-0.5 ${generatorModel === m.id ? 'opacity-70' : 'opacity-50'}`}>
-                        {m.desc}
-                      </span>
+                      <span className={`block text-[9px] mt-0.5 ${generatorModel === m.id ? 'opacity-70' : 'opacity-50'}`}>{m.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -499,7 +520,7 @@ function CreativeTools({
                   {VISUAL_STYLES.map(style => (
                     <button
                       key={style.id}
-                      onClick={() => { setVisualStyle(style.id); setPromptReady(false) }}
+                      onClick={() => setVisualStyle(style.id)}
                       className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
                         visualStyle === style.id
                           ? 'border-foreground bg-foreground text-background'
@@ -507,9 +528,7 @@ function CreativeTools({
                       }`}
                     >
                       <span className="block text-xs font-medium">{style.label}</span>
-                      <span className={`block text-[9px] mt-0.5 ${visualStyle === style.id ? 'opacity-70' : 'opacity-50'}`}>
-                        {style.desc}
-                      </span>
+                      <span className={`block text-[9px] mt-0.5 ${visualStyle === style.id ? 'opacity-70' : 'opacity-50'}`}>{style.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -518,12 +537,12 @@ function CreativeTools({
               {/* Slide selector for carousel */}
               {isCarousel && slides.length > 0 && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground mb-1.5">Slide a generar</p>
+                  <p className="text-[10px] text-muted-foreground mb-1.5">Slide</p>
                   <div className="flex gap-1 flex-wrap">
                     {slides.map((slide, i) => (
                       <button
                         key={slide.label}
-                        onClick={() => { setSegmentIdx(i); setPromptReady(false) }}
+                        onClick={() => setSegmentIdx(i)}
                         className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                           segmentIdx === i
                             ? 'border-foreground bg-foreground text-background'
@@ -537,85 +556,138 @@ function CreativeTools({
                 </div>
               )}
 
-              {/* Prepare prompt or editable prompt */}
-              {!promptReady ? (
+              {/* Prompt textarea */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-muted-foreground">Prompt — edítalo si quieres ajustar</p>
+                <textarea
+                  value={promptText}
+                  onChange={e => setPromptText(e.target.value)}
+                  rows={6}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
+                />
+                <button onClick={() => copyText(promptText)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  {copied ? 'Copiado ✓' : 'Copiar prompt'}
+                </button>
+              </div>
+
+              {/* Format selector + generate buttons */}
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground mb-1">Formato del anuncio</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {AD_FORMAT_KEYS.map(fmt => {
+                    const fmtCfg = AD_FORMATS[fmt]
+                    const hasAsset = localAssets.some(a => a.format === fmt)
+                    const isGenFmt = generatingFormats.has(fmt)
+                    return (
+                      <button
+                        key={fmt}
+                        onClick={() => setSelectedFormat(fmt)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors relative ${
+                          selectedFormat === fmt
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                        }`}
+                      >
+                        <span className="block text-xs font-medium">{fmtCfg.label}</span>
+                        <span className={`block text-[9px] mt-0.5 ${selectedFormat === fmt ? 'opacity-70' : 'opacity-50'}`}>{fmtCfg.platforms}</span>
+                        {(hasAsset || isGenFmt) && (
+                          <span className={`absolute -top-1 -right-1 h-2 w-2 rounded-full ${isGenFmt ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}`} />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
                 <div className="flex gap-2 flex-wrap">
                   <Button
-                    onClick={handlePreparePrompt}
-                    variant="outline"
+                    onClick={() => handleGenerateFormat(selectedFormat)}
+                    disabled={!promptText.trim() || generatingFormats.has(selectedFormat)}
                     size="sm"
                     className="gap-1.5"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    Preparar prompt
+                    {generatingFormats.has(selectedFormat)
+                      ? 'Generando...'
+                      : `Generar ${AD_FORMATS[selectedFormat].label}`}
+                  </Button>
+                  <Button
+                    onClick={handleGenerateAll}
+                    disabled={!promptText.trim() || generatingFormats.size > 0}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generar todos los formatos
                   </Button>
                   <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[10px] text-muted-foreground">Prompt para DALL-E 3 — edítalo antes de generar</p>
-                  <textarea
-                    value={promptText}
-                    onChange={e => setPromptText(e.target.value)}
-                    rows={10}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
-                  />
-                  <div className="flex gap-2 flex-wrap items-center">
-                    <Button
-                      onClick={handleGenerateImage}
-                      disabled={generatingImage || !promptText.trim()}
-                      size="sm"
-                      className="gap-1.5"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : `Generar con ${IMAGE_MODELS.find(m => m.id === generatorModel)?.label}`}
-                    </Button>
-                    <button
-                      onClick={() => { setPromptReady(false); setImageUrl(null) }}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      ← Cambiar estilo
-                    </button>
-                    <button
-                      onClick={() => copyText(promptText)}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copied ? 'Copiado' : 'Copiar prompt'}
-                    </button>
+
+                {generatingFormats.size > 0 && (
+                  <p className="text-[11px] text-muted-foreground animate-pulse">
+                    {generatorModel === 'flux' ? 'Flux generando — ~30s por formato...'
+                      : generatorModel === 'gpt-image-1' ? 'gpt-image-1 generando — ~90s por formato...'
+                      : 'DALL-E 3 generando — ~20s por formato...'}
+                  </p>
+                )}
+              </div>
+
+              {/* Generated assets grid */}
+              {localAssets.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Artes generadas — {localAssets.length} formato{localAssets.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {AD_FORMAT_KEYS.map(fmt => {
+                      const asset = localAssets.find(a => a.format === fmt)
+                      const fmtCfg = AD_FORMATS[fmt]
+                      const isGenFmt = generatingFormats.has(fmt)
+                      return (
+                        <div key={fmt} className="space-y-1.5">
+                          <p className="text-[10px] font-medium text-muted-foreground">{fmtCfg.label}</p>
+                          <div className={`${fmtCfg.aspectClass} ${fmtCfg.previewClass} w-full overflow-hidden rounded-lg border border-border bg-muted`}>
+                            {isGenFmt ? (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <span className="text-[10px] text-muted-foreground animate-pulse">Generando...</span>
+                              </div>
+                            ) : asset ? (
+                              <img src={asset.url} alt={asset.label} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <span className="text-[10px] text-muted-foreground/40">Sin generar</span>
+                              </div>
+                            )}
+                          </div>
+                          {asset && (
+                            <div className="flex gap-1.5 flex-wrap">
+                              <a
+                                href={asset.url}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                                Descargar
+                              </a>
+                              <button
+                                onClick={() => handleGenerateFormat(fmt)}
+                                disabled={generatingFormats.has(fmt)}
+                                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                              >
+                                <RefreshCw className="h-2.5 w-2.5" />
+                                Regen.
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {generatingImage && (
-                    <p className="text-[11px] text-muted-foreground animate-pulse">
-                      {generatorModel === 'flux'
-                        ? 'Flux 1.1 Pro generando — ~30 segundos...'
-                        : generatorModel === 'gpt-image-1'
-                        ? 'gpt-image-1 generando — puede tomar hasta 90 segundos...'
-                        : 'DALL-E 3 generando — ~20 segundos...'}
-                    </p>
-                  )}
                 </div>
               )}
 
-              {imageUrl && (
-                <div className="space-y-2 pt-1">
-                  <img
-                    src={imageUrl}
-                    alt="Imagen generada"
-                    className="rounded-xl border border-border w-full max-w-sm object-cover shadow-sm"
-                  />
-                  <div className="flex gap-2 flex-wrap">
-                    <a
-                      href={imageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Abrir en tamaño completo
-                    </a>
-                    <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -803,6 +875,9 @@ export default function PlanDetailPage({ params }: Props) {
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefDraft, setBriefDraft] = useState('')
   const [showBrief, setShowBrief] = useState(false)
+
+  // Step 5 tabs state
+  const [productionTabs, setProductionTabs] = useState<Record<string, 'copy' | 'arte'>>({})
 
   // Step 3 wizard state
   const [reviewItemId, setReviewItemId] = useState<string | null>(null)
@@ -1656,7 +1731,8 @@ export default function PlanDetailPage({ params }: Props) {
                     </p>
                     <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                       {item.rawIdeas?.ideas[0]?.contentType && (
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {getFormatIcon(item.rawIdeas.ideas[0].contentType)}
                           {item.rawIdeas.ideas[0].contentType}
                         </span>
                       )}
@@ -1713,6 +1789,10 @@ export default function PlanDetailPage({ params }: Props) {
           {items.filter(i => i.status === 'approved' && i.observations).map((item, idx) => {
             const idea = item.rawIdeas?.ideas[0]
             const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
+            const isVideoItem = idea ? VIDEO_FORMATS.some(f => idea.contentType?.toLowerCase().includes(f.toLowerCase())) : false
+            const tab = productionTabs[item.id] ?? 'copy'
+            const arteLabel = isVideoItem ? 'Video' : 'Arte'
+            const assetCount = (item.generatedAssets ?? []).length
             return (
               <div key={item.id} className="rounded-xl border border-border bg-card overflow-hidden">
                 {/* Header */}
@@ -1723,7 +1803,10 @@ export default function PlanDetailPage({ params }: Props) {
                   <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-foreground truncate">{idea?.name ?? item.temporality}</p>
                     {item.format && (
-                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{item.format}</span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        {getFormatIcon(item.format)}
+                        {item.format}
+                      </span>
                     )}
                     <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>
                       {FUNNEL_LABELS[item.funnelStage]}
@@ -1736,27 +1819,108 @@ export default function PlanDetailPage({ params }: Props) {
                         {ideaCfg.icon}{ideaCfg.label}
                       </span>
                     )}
+                    {item.productionApproved && (
+                      <span className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">
+                        <Check className="h-3 w-3" />
+                        Aprobado para publicar
+                      </span>
+                    )}
                   </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-border">
                   <button
-                    onClick={() => navigator.clipboard.writeText(item.observations ?? '')}
-                    className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    onClick={() => setProductionTabs(t => ({ ...t, [item.id]: 'copy' }))}
+                    className={`px-5 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                      tab === 'copy'
+                        ? 'border-foreground text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    Copiar copy
+                    Copy
                   </button>
+                  {idea && (
+                    <button
+                      onClick={() => setProductionTabs(t => ({ ...t, [item.id]: 'arte' }))}
+                      className={`px-5 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                        tab === 'arte'
+                          ? 'border-foreground text-foreground'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {arteLabel}
+                      {assetCount > 0 && (
+                        <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-green-100 text-[9px] font-bold text-green-700">
+                          {assetCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                {/* Copy */}
-                <div className="px-4 pt-4 pb-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Copy</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
-                    {item.observations}
-                  </p>
-                </div>
+                {/* Tab content */}
+                {tab === 'copy' && (
+                  <div className="px-4 pt-4 pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Copy de producción</p>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(item.observations ?? '')}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copiar
+                      </button>
+                    </div>
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
+                      {item.observations}
+                    </p>
+                  </div>
+                )}
 
-                {/* Arte visual — separator */}
-                {idea && (
-                  <div className="px-4 pb-4 pt-3 border-t border-border mt-3">
-                    <CreativeTools idea={idea} planId={planId} itemId={item.id} />
+                {tab === 'arte' && idea && (
+                  <div className="px-4 pb-4 pt-4 space-y-4">
+                    <CreativeTools
+                      idea={idea}
+                      planId={planId}
+                      itemId={item.id}
+                      persistedAssets={item.generatedAssets ?? []}
+                    />
+
+                    {/* Production approval */}
+                    <div className={`rounded-xl border-2 px-4 py-3 flex items-center justify-between gap-4 ${item.productionApproved ? 'border-green-200 bg-green-50' : 'border-dashed border-border bg-muted/30'}`}>
+                      {item.productionApproved ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-green-600 shrink-0" />
+                            <p className="text-sm font-medium text-green-800">Arte aprobado para publicar</p>
+                          </div>
+                          <button
+                            onClick={() => updateItem({ itemId: item.id, patch: { productionApproved: false } })}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Reabrir
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground">
+                            {(item.generatedAssets ?? []).length > 0
+                              ? `${item.generatedAssets!.length} formato${item.generatedAssets!.length !== 1 ? 's' : ''} generado${item.generatedAssets!.length !== 1 ? 's' : ''} — ¿listo para publicar?`
+                              : 'Genera el arte antes de aprobar'}
+                          </p>
+                          <Button
+                            onClick={() => updateItem({ itemId: item.id, patch: { productionApproved: true } })}
+                            disabled={(item.generatedAssets ?? []).length === 0}
+                            size="sm"
+                            className="gap-1.5 bg-green-700 hover:bg-green-800 text-white shrink-0"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Aprobar para publicar
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

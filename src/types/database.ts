@@ -262,6 +262,8 @@ export interface Database {
           sort_order: number
           raw_ideas: unknown | null
           selected_idea_type: string | null
+          generated_assets: unknown
+          production_approved: boolean
           created_at: string
           updated_at: string
         }
@@ -285,6 +287,8 @@ export interface Database {
           sort_order?: number
           raw_ideas?: unknown | null
           selected_idea_type?: string | null
+          generated_assets?: unknown
+          production_approved?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -308,6 +312,8 @@ export interface Database {
           sort_order?: number
           raw_ideas?: unknown | null
           selected_idea_type?: string | null
+          generated_assets?: unknown
+          production_approved?: boolean
           created_at?: string
           updated_at?: string
         }
