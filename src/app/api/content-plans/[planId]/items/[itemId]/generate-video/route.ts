@@ -7,7 +7,7 @@ import { errorResponse } from '@/lib/utils/errors'
 
 export const maxDuration = 60
 
-const HIGGSFIELD_BASE = 'https://api.higgsfield.ai'
+const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai'
 
 const CAMERA_MOTIONS = [
   { id: 'dolly_in',       name: 'Dolly In',        use: 'revelar emociones, acercamiento a producto o rostro' },
@@ -79,41 +79,42 @@ async function submitHiggsfieldJob(prompt: string, motionId: string, referenceIm
   const apiKey = process.env.HIGGSFIELD_API_KEY
   if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
 
-  const body: Record<string, unknown> = {
-    prompt,
-    enhance_prompt: true,
-  }
+  // API key format: KEY_ID:KEY_SECRET — encode as Basic auth
+  const authHeader = `Basic ${Buffer.from(apiKey).toString('base64')}`
 
-  // Use DoP Turbo (image-to-video) if reference image provided, else WAN text-to-video
+  const input: Record<string, unknown> = { prompt }
+  if (motionId && motionId !== 'static') input.motion = motionId
+
+  let endpoint: string
   if (referenceImageUrl) {
-    body.model = 'dop-turbo'
-    body.input_image = referenceImageUrl
+    endpoint = `${HIGGSFIELD_BASE}/v1/image2video/dop`
+    input.model = 'dop-turbo'
+    input.input_images = [{ type: 'image_url', image_url: referenceImageUrl }]
   } else {
-    body.model = 'wan-pro'
+    endpoint = `${HIGGSFIELD_BASE}/v1/text2video/wan`
+    input.model = 'wan-pro'
   }
 
-  // Add motion if supported by the model
-  if (motionId !== 'static') {
-    body.motion = motionId
-  }
-
-  const res = await fetch(`${HIGGSFIELD_BASE}/v1/generations`, {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Key ${apiKey}`,
+      Authorization: authHeader,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ input }),
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err?.message ?? err?.detail ?? `Error Higgsfield (HTTP ${res.status})`)
+    const detail = err?.message ?? err?.detail ?? err?.error ?? JSON.stringify(err)
+    throw new Error(`Error Higgsfield (HTTP ${res.status}): ${detail}`)
   }
 
   const result = await res.json()
+  // Handle both flat and nested response shapes
   const jobId = result.id ?? result.job_id ?? result.generation_id
-  if (!jobId) throw new Error('Higgsfield no devolvió un job ID')
+    ?? result.jobSet?.id ?? result.jobSet?.jobs?.[0]?.id
+  if (!jobId) throw new Error(`Higgsfield no devolvió job ID. Respuesta: ${JSON.stringify(result).slice(0, 200)}`)
   return String(jobId)
 }
 
