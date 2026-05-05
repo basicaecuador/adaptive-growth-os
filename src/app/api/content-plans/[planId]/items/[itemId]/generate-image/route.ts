@@ -75,12 +75,12 @@ export async function POST(
       prompt = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
     }
 
-    // Flux 1.1 Pro via fal.ai — much better quality than DALL-E 3, 5-15s generation
+    // Flux Schnell via fal.ai — 1-4s generation, well within Vercel Hobby 60s limit
     const imageSize = isVertical
       ? { width: 768, height: 1344 }  // ~9:16
       : { width: 1024, height: 1024 } // 1:1
 
-    const falRes = await fetch('https://fal.run/fal-ai/flux-pro/v1.1', {
+    const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
       method: 'POST',
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,
@@ -89,11 +89,10 @@ export async function POST(
       body: JSON.stringify({
         prompt,
         image_size: imageSize,
-        num_inference_steps: 28,
+        num_inference_steps: 4,
         num_images: 1,
         enable_safety_checker: true,
-        safety_tolerance: '2',
-        output_format: 'jpeg',
+        sync_mode: true,
       }),
     })
 
