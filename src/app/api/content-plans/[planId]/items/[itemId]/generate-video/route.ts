@@ -76,8 +76,12 @@ Devuelve SOLO JSON:
 }
 
 async function submitHiggsfieldJob(prompt: string, motionId: string, referenceImageUrl?: string): Promise<string> {
-  const apiKey = process.env.HIGGSFIELD_API_KEY
-  if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
+  const credentials = process.env.HIGGSFIELD_API_KEY
+  if (!credentials) throw new Error('HIGGSFIELD_API_KEY no configurada')
+  const colonIdx = credentials.indexOf(':')
+  if (colonIdx === -1) throw new Error('HIGGSFIELD_API_KEY debe tener formato KEY_ID:KEY_SECRET')
+  const hfApiKey = credentials.slice(0, colonIdx)
+  const hfSecret = credentials.slice(colonIdx + 1)
 
   const input: Record<string, unknown> = { prompt }
   if (motionId && motionId !== 'static') input.motion = motionId
@@ -95,7 +99,8 @@ async function submitHiggsfieldJob(prompt: string, motionId: string, referenceIm
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      'hf-api-key': hfApiKey,
+      'hf-secret': hfSecret,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ input }),
