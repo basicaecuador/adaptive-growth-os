@@ -50,7 +50,6 @@ export async function GET(
         jobId,
         status,
         videoUrl,
-        raw: result,
       },
     })
   } catch (err) {
