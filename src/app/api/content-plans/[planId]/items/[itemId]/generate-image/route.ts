@@ -84,7 +84,6 @@ export async function POST(
         n: 1,
         size,
         quality: 'high',
-        response_format: 'url',
       }),
     })
 
@@ -95,7 +94,7 @@ export async function POST(
 
     const result = await res.json()
     const generated = result.data[0]
-    // gpt-image-1: prefer url, fall back to base64 if needed
+    // gpt-image-1 always returns b64_json
     const imageUrl: string = generated.url ?? `data:image/png;base64,${generated.b64_json}`
 
     return NextResponse.json({ data: { imageUrl } })
