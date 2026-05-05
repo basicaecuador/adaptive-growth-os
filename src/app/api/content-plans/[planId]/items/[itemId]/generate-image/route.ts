@@ -75,35 +75,32 @@ export async function POST(
       prompt = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
     }
 
-    // Flux Schnell via fal.ai — 1-4s generation, well within Vercel Hobby 60s limit
-    const imageSize = isVertical
-      ? { width: 768, height: 1344 }  // ~9:16
-      : { width: 1024, height: 1024 } // 1:1
+    const size = isVertical ? '1024x1792' : '1024x1024'
 
-    const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
+    const falRes = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
-        Authorization: `Key ${process.env.FAL_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'dall-e-3',
         prompt,
-        image_size: imageSize,
-        num_inference_steps: 4,
-        num_images: 1,
-        enable_safety_checker: true,
-        sync_mode: true,
+        n: 1,
+        size,
+        quality: 'standard',
+        style: 'natural',
       }),
     })
 
     if (!falRes.ok) {
       const errBody = await falRes.json().catch(() => ({}))
-      throw new Error(errBody?.detail ?? errBody?.error ?? `Error generando imagen (HTTP ${falRes.status})`)
+      throw new Error(errBody?.error?.message ?? `Error generando imagen (HTTP ${falRes.status})`)
     }
 
     const result = await falRes.json()
-    const imageUrl: string = result.images?.[0]?.url
-    if (!imageUrl) throw new Error('fal.ai no devolvió imagen')
+    const imageUrl: string = result.data?.[0]?.url
+    if (!imageUrl) throw new Error('No se recibió imagen')
 
     return NextResponse.json({ data: { imageUrl } })
   } catch (err) {
