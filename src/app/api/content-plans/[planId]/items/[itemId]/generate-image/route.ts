@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUser } from '@/lib/supabase/server-client'
 import { errorResponse } from '@/lib/utils/errors'
 
-export const maxDuration = 120
+export const maxDuration = 60
 
 function buildImagePrompt(development: string, format: string, hook: string): string {
   const isCarousel = /carrusel|carousel/i.test(format)
@@ -60,8 +60,7 @@ export async function POST(
 
     const formatFromIdea = rawIdeas?.ideas?.[0]?.contentType ?? 'Post'
     const isVertical = /historia|story/i.test(formatFromIdea)
-    // gpt-image-1 supports: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
-    const size = isVertical ? '1024x1536' : '1024x1024'
+    const size = isVertical ? '1024x1792' : '1024x1024'
 
     let prompt: string
     if (customPrompt) {
@@ -79,11 +78,12 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-image-1',
+        model: 'dall-e-3',
         prompt,
         n: 1,
         size,
-        quality: 'medium',
+        quality: 'hd',
+        style: 'natural',
       }),
     })
 
@@ -93,9 +93,7 @@ export async function POST(
     }
 
     const result = await res.json()
-    const generated = result.data[0]
-    // gpt-image-1 always returns b64_json
-    const imageUrl: string = generated.url ?? `data:image/png;base64,${generated.b64_json}`
+    const imageUrl: string = result.data[0].url
 
     return NextResponse.json({ data: { imageUrl } })
   } catch (err) {

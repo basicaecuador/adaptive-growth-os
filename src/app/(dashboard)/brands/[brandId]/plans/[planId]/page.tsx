@@ -349,7 +349,7 @@ function CreativeTools({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[10px] text-muted-foreground">Prompt para GPT Image — edítalo antes de generar</p>
+                  <p className="text-[10px] text-muted-foreground">Prompt para DALL-E 3 — edítalo antes de generar</p>
                   <textarea
                     value={promptText}
                     onChange={e => setPromptText(e.target.value)}
@@ -364,7 +364,7 @@ function CreativeTools({
                       className="gap-1.5"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con GPT Image'}
+                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con DALL-E 3'}
                     </Button>
                     <button
                       onClick={() => { setPromptReady(false); setImageUrl(null) }}
@@ -381,7 +381,7 @@ function CreativeTools({
                   </div>
                   {generatingImage && (
                     <p className="text-[11px] text-muted-foreground animate-pulse">
-                      GPT Image 1 está generando la imagen en alta calidad...
+                      DALL-E 3 1 está generando la imagen en alta calidad...
                     </p>
                   )}
                 </div>
