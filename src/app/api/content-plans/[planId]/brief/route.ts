@@ -7,7 +7,7 @@ import { getAnthropicClient } from '@/lib/ai/client'
 import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const ECUADOR_DATES: Record<number, string[]> = {
   1: ['1 ene — Año Nuevo', '6 ene — Día de Reyes'],

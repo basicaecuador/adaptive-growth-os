@@ -5,7 +5,7 @@ import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
 import type { PlanIdeaSet, PlanIdea, IdeaType } from '@/types/domain'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function POST(
   req: NextRequest,
