@@ -107,6 +107,33 @@ Los 4 grandes temas que deben dominar el mes. Cada eje debe conectar la marca co
 ### Mix por canal
 ${channelMix.map(ch => `- **${ch}**: [número] piezas — [tipos de contenido recomendados]`).join('\n')}
 
+### Psicología del cliente objetivo
+La materia prima emocional del mes — lo que la audiencia cree, teme y desea en relación a esta marca y sus productos.
+
+**Creencias limitantes a romper o capitalizar:**
+- [Creencia limitante 1 — específica, no genérica. Ej: "Es muy caro para lo que ofrece" / "Ya probé algo similar y no funcionó"]
+- [Creencia limitante 2]
+
+**Miedos no verbalizados:**
+- [Miedo 1 — interno, no racional. Ej: "Que me juzguen por gastar en esto" / "Que no funcione y quede mal frente a mi familia"]
+- [Miedo 2]
+
+**Motivadores y deseos concretos:**
+- [Motivador 1 — específico. Ej: "Verse profesional frente a clientes" / "Ahorrar para el viaje que llevan 2 años planeando"]
+- [Motivador 2]
+
+**Punto de quiebre / epifanía del mes:**
+[El momento exacto en que la audiencia dice "esto es justo lo que necesito". El insight que debe atravesar todo el contenido del mes.]
+
+### Referentes creativos del mes
+Enfoques creativos a priorizar por etapa del funnel para esta marca y audiencia específica:
+- **Awareness:** [Enfoque creativo] — [Por qué conecta con esta audiencia en este momento]
+- **Consideración:** [Enfoque creativo] — [Razón]
+- **Conversión:** [Enfoque creativo] — [Razón]
+- **Remarketing:** [Enfoque creativo] — [Razón]
+
+Opciones de referentes: UGC storytelling natural | Meta Creative directo | Big Idea aspiracional | Social proof con urgencia | Tutorial disruptivo | Mito vs Realidad | Transformación antes/después | Wieden+Kennedy emocional | Droga5 tensión humana | Apple simplicidad + emoción
+
 Responde solo con el brief, sin texto adicional antes ni después.`
 
     const anthropic = getAnthropicClient()

@@ -43,6 +43,13 @@ type RawPiece = {
   format: string
   name: string
   hook: string
+  hook_options: Array<{ type: string; text: string; why: string }>
+  selected_hook_type: string
+  selected_hook_reason: string
+  limiting_belief: string
+  motivator: string
+  creative_reference: string
+  native_resource: string
   higgsfield_prompt: string
   content: string
   cta: string
@@ -143,6 +150,28 @@ MAPA EMOCIONAL POR ETAPA:
 - conversion → target_emotion: Urgencia | Validación social | FOMO
 - remarketing → target_emotion: Reactivación | Oportunidad perdida | Nostalgia
 
+PSICOLOGÍA POR PIEZA (Fases 2 y 3):
+Para cada pieza define:
+- limiting_belief: la creencia limitante ESPECÍFICA que la audiencia tiene sobre este producto/resultado. No genérico. Ej: "Es muy caro para lo que hace", "No creo que me funcione a mí", "Siempre pasa algo y pierdo el dinero". Debe ser la voz interna real del cliente.
+- motivator: el deseo o dolor CONCRETO que activa la atención. No aspiracional genérico. Ej: "Verse profesional frente a sus clientes sin gastar una fortuna", "Llegar a fin de mes sin deudas", "Que su pareja vea que sí puede lograrlo". Específico y real.
+
+REFERENTE CREATIVO POR PIEZA (Fase 4):
+- creative_reference: el enfoque creativo que define el tono y estructura visual de esta pieza. Elige uno: "UGC storytelling natural" | "Meta Creative directo" | "Big Idea aspiracional" | "Social proof con urgencia" | "Tutorial disruptivo" | "Mito vs Realidad" | "Transformación antes/después" | "Tensión humana emocional" | "Simplicidad + emoción Apple-style"
+
+RECURSO NATIVO DE PLATAFORMA (Fase 5):
+- native_resource: el recurso nativo específico de la plataforma para esta pieza. Ej: "POV", "Talking head creator", "Split screen", "Before/After", "Lista rápida 3 puntos", "Storytime conversacional", "UGC testimonial", "Tutorial paso a paso", "Q&A", "Mito vs Realidad", "" (para formatos no video).
+
+MÚLTIPLES HOOKS + SELECCIÓN (Fases 7 y 8):
+Para cada pieza genera 3 opciones de hook y selecciona la más fuerte:
+- hook_options: array con exactamente 3 opciones:
+  * type:"visual" → los primeros 3 segundos en movimiento/imagen (para video) o elemento visual dominante (estáticos)
+  * type:"texto" → frase de pantalla impactante, máximo 7 palabras
+  * type:"trending" → formato viral reconocible de la plataforma en este momento
+  Cada una con: {type, text, why} donde why explica en 1 oración su potencial de thumb-stopping.
+- selected_hook_type: cuál de los 3 detiene más el scroll ("visual" | "texto" | "trending")
+- selected_hook_reason: en 1 oración por qué ese hook es el más fuerte de los tres
+- hook: repite el texto exacto del hook seleccionado (para compatibilidad)
+
 CONTENIDO REQUERIDO POR FORMATO:
 
 Reel/Historia → Define momento Pitch/Play/Plan. Hook type explícito. Audio como elemento narrativo. Texto en pantalla en CADA escena. CTA visible en última escena.
@@ -161,12 +190,15 @@ Google Display → content="TITULAR: [...]\nCUERPO: [texto breve]\nCTA: [texto b
 REGLAS JSON:
 - channel: SOLO canales de la lista activa
 - higgsfield_prompt: SOLO para Reel/Historia — describe movimiento de cámara + atmósfera visual + dirección de luz ("" para el resto)
-- hook (10 palabras máx): video→describe los primeros 3s visuales | resto→titular impactante
+- hook (10 palabras máx): el texto exacto del hook seleccionado
 - idea_type: awareness→disruptiva | consideration→aspiracional | conversion/remarketing→racional
 - name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
+- limiting_belief y motivator: específicos y reales, en voz del cliente, no genéricos
+- hook_options: exactamente 3 opciones (visual, texto, trending)
+- native_resource: "" para formatos no video
 
 JSON — solo el array sin markdown:
-[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","hook":"Primer plano manos sosteniendo producto inesperado","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","content":"HOOK TYPE: visual\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano manos sosteniendo producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto existe.]\\nESC2 (12s): Visual:[demo en acción ángulo cenital] | Voz:[Con X logras Y en solo Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado final + logo marca en zona segura] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que la audiencia querrá reenviar a un amigo","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
+[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","limiting_belief":"Eso es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto inesperado","why":"El movimiento inesperado fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO inmediato"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement en Reels ahora"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto exclusivo genera más clicks que el visual en etapa awareness","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","content":"HOOK TYPE: texto\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano manos sosteniendo producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo en acción ángulo cenital] | Voz:[Con X logras Y en solo Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado final + logo marca en zona segura] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que la audiencia querrá reenviar a un amigo","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
@@ -203,7 +235,13 @@ JSON — solo el array sin markdown:
           contentType: raw.format,
           funnelObjective: raw.funnel_stage,
           hook: raw.hook,
-          hookType: '',
+          hookType: raw.selected_hook_type || '',
+          hookOptions: raw.hook_options || [],
+          selectedHookReason: raw.selected_hook_reason || '',
+          limitingBelief: raw.limiting_belief || '',
+          motivator: raw.motivator || '',
+          creativeReference: raw.creative_reference || '',
+          nativeResource: raw.native_resource || '',
           higgsfieldPrompt: raw.higgsfield_prompt || '',
           development: raw.content,
           cta: raw.cta,
