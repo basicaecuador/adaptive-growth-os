@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUser } from '@/lib/supabase/server-client'
 import { errorResponse } from '@/lib/utils/errors'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 function buildImagePrompt(development: string, format: string, hook: string): string {
   const isCarousel = /carrusel|carousel/i.test(format)
@@ -83,7 +83,7 @@ export async function POST(
         prompt,
         n: 1,
         size,
-        quality: 'high',
+        quality: 'medium',
       }),
     })
 
