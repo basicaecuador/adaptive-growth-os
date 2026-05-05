@@ -38,6 +38,7 @@ export interface BrandSetup {
   valueProposition: string
   contentPillars: string[]
   restrictions: string[]
+  monthlyPiecesLimit?: number
   updatedAt: Date
 }
 
@@ -194,6 +195,23 @@ export interface Feedback {
   type: 'correction' | 'suggestion' | 'approval'
   createdBy: string
   createdAt: Date
+}
+
+export type ExpansionRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ContentExpansionRequest {
+  id: string
+  planId: string
+  brandId: string
+  includedPieces: number
+  requiredPieces: number
+  additionalPieces: number
+  reason: string
+  status: ExpansionRequestStatus
+  requestedAt: Date
+  requestedBy: string
+  reviewedAt: Date | null
+  reviewedBy: string | null
 }
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested'

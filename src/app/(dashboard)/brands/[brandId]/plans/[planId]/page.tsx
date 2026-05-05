@@ -18,7 +18,11 @@ import {
   useGenerateVideo,
   useHiggsfieldStatus,
   useUploadAsset,
+  useExpansionRequests,
+  useCreateExpansionRequest,
+  useReviewExpansionRequest,
 } from '@/hooks/use-content-plans'
+import { useBrandDetail } from '@/hooks/use-brand-setup'
 import { toast } from 'sonner'
 import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
 
@@ -1154,6 +1158,10 @@ function PreviewCard({ item, idx }: { item: ContentPlanItem; idx: number }) {
 export default function PlanDetailPage({ params }: Props) {
   const { brandId, planId } = use(params)
   const { data, isLoading } = useContentPlan(planId)
+  const { data: brand } = useBrandDetail(brandId)
+  const { data: expansionRequests = [] } = useExpansionRequests(planId)
+  const { mutateAsync: createExpansionRequest, isPending: requestingExpansion } = useCreateExpansionRequest(planId)
+  const { mutateAsync: reviewExpansionRequest } = useReviewExpansionRequest(planId)
   const { mutateAsync: generateBrief, isPending: generatingBrief } = useGenerateBrief(planId)
   const { mutateAsync: generate, isPending: generating } = useGeneratePlan(planId)
   const { mutateAsync: updatePlan, isPending: savingBrief } = useUpdatePlan(planId)
@@ -1182,6 +1190,9 @@ export default function PlanDetailPage({ params }: Props) {
   const [refineFeedback, setRefineFeedback] = useState('')
   const [refinedIdea, setRefinedIdea] = useState<PlanIdea | null>(null)
   const [confirmRegen, setConfirmRegen] = useState(false)
+
+  // Expansion request popup
+  const [expansionCheck, setExpansionCheck] = useState<{ expected: number; limit: number } | null>(null)
 
   // Sync channel mix and funnel focus from stored plan data on load
   useEffect(() => {
@@ -1227,16 +1238,51 @@ export default function PlanDetailPage({ params }: Props) {
     }
   }
 
+  const PIECES_PER_PRODUCT = 7
+
   async function handleGenerate() {
     setReviewItemId(null)
     setRefinedIdea(null)
     setRefineMode(false)
     setConfirmRegen(false)
+
+    const expectedPieces = (plan?.products?.length ?? 0) * PIECES_PER_PRODUCT
+    const limit = brand?.monthlyPiecesLimit
+    if (limit && expectedPieces > limit) {
+      const hasApproved = expansionRequests.some(r => r.status === 'approved')
+      if (!hasApproved) {
+        setExpansionCheck({ expected: expectedPieces, limit })
+        return
+      }
+    }
+
+    await doGenerate()
+  }
+
+  async function doGenerate() {
     try {
       await generate()
       toast.success('Ideas generadas — revisa y aprueba cada pieza')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar')
+    }
+  }
+
+  async function handleRequestExpansion() {
+    if (!expansionCheck || !brand) return
+    const additional = expansionCheck.expected - expansionCheck.limit
+    const reason = `Plan de ${plan?.products?.length ?? 0} producto(s) requiere ${expansionCheck.expected} piezas; plan contratado incluye ${expansionCheck.limit}. Se solicitan ${additional} piezas adicionales.`
+    try {
+      await createExpansionRequest({
+        brandId: brand.brandId,
+        includedPieces: expansionCheck.limit,
+        requiredPieces: expansionCheck.expected,
+        reason,
+      })
+      setExpansionCheck(null)
+      toast.success('Solicitud de ampliación enviada — aguarda aprobación para generar el plan')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al enviar solicitud')
     }
   }
 
@@ -1826,8 +1872,73 @@ export default function PlanDetailPage({ params }: Props) {
   }
 
   // ── STEP 3 overview ─────────────────────────────────────────────
+  const pendingRequest = expansionRequests.find(r => r.status === 'pending')
+  const approvedRequest = expansionRequests.find(r => r.status === 'approved')
+
   return (
     <div className="p-8 max-w-4xl">
+      {/* Expansion request popup */}
+      {expansionCheck && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                <span className="text-lg font-bold">!</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Límite del plan mensual alcanzado</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Para cumplir el objetivo mensual se requieren <strong>{expansionCheck.expected} piezas</strong>, pero el plan contratado incluye <strong>{expansionCheck.limit} piezas</strong>.
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Se necesitan <strong className="text-amber-600">{expansionCheck.expected - expansionCheck.limit} piezas adicionales</strong>. ¿Deseas solicitar esta ampliación antes de continuar?
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={handleRequestExpansion}
+                disabled={requestingExpansion}
+                className="w-full"
+              >
+                {requestingExpansion ? 'Enviando solicitud...' : 'Solicitar ampliación'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setExpansionCheck(null)}
+                className="w-full"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expansion request banners */}
+      {pendingRequest && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <span className="font-semibold">Ampliación pendiente:</span>
+            <span>+{pendingRequest.additionalPieces} piezas — aguarda aprobación para generar el plan</span>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" onClick={() => reviewExpansionRequest({ requestId: pendingRequest.id, status: 'approved' })}>
+              Aprobar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => reviewExpansionRequest({ requestId: pendingRequest.id, status: 'rejected' })}>
+              Rechazar
+            </Button>
+          </div>
+        </div>
+      )}
+      {approvedRequest && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <Check className="h-4 w-4 text-green-600 shrink-0" />
+          <span><strong>Ampliación aprobada:</strong> +{approvedRequest.additionalPieces} piezas adicionales disponibles para este mes.</span>
+        </div>
+      )}
+
       <Link
         href={`/brands/${brandId}/plans`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

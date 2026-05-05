@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType, GeneratedAsset, AdFormat, ContentExpansionRequest } from '@/types/domain'
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -233,6 +233,57 @@ export function useUpdatePlanItem(planId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
+
+export function useExpansionRequests(planId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['expansion-requests', planId],
+    queryFn: async () => {
+      const res = await fetch(`/api/content-plans/${planId}/expansion-requests`)
+      if (!res.ok) throw new Error('Error al cargar solicitudes')
+      const { data } = await res.json()
+      return data as ContentExpansionRequest[]
+    },
+    enabled: !!planId,
+  })
+}
+
+export function useCreateExpansionRequest(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { brandId: string; includedPieces: number; requiredPieces: number; reason: string }) => {
+      const res = await fetch(`/api/content-plans/${planId}/expansion-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al crear solicitud'))
+      const { data } = await res.json()
+      return data as ContentExpansionRequest
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expansion-requests', planId] })
+    },
+  })
+}
+
+export function useReviewExpansionRequest(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ requestId, status }: { requestId: string; status: 'approved' | 'rejected' }) => {
+      const res = await fetch(`/api/content-plans/${planId}/expansion-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al actualizar solicitud'))
+      const { data } = await res.json()
+      return data as ContentExpansionRequest
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expansion-requests', planId] })
     },
   })
 }

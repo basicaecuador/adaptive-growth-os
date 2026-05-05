@@ -17,6 +17,7 @@ export const brandSetupSchema = z.object({
   valueProposition: z.string().min(10).max(1000),
   contentPillars: z.array(z.string().min(2).max(100)).min(1).max(8),
   restrictions: z.array(z.string().min(2).max(200)).max(20),
+  monthlyPiecesLimit: z.number().int().min(1).max(500).optional(),
 })
 
 export type CreateBrandInput = z.infer<typeof createBrandSchema>

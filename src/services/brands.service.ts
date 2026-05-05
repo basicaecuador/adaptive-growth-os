@@ -110,6 +110,7 @@ type BrandDetailRow = {
   value_proposition: string | null
   content_pillars: string[] | null
   restrictions: string[] | null
+  monthly_pieces_limit: number | null
   updated_at: string
 }
 
@@ -122,6 +123,7 @@ function toSetup(row: BrandDetailRow): BrandSetup {
     valueProposition: row.value_proposition ?? '',
     contentPillars: row.content_pillars ?? [],
     restrictions: row.restrictions ?? [],
+    monthlyPiecesLimit: row.monthly_pieces_limit ?? undefined,
     updatedAt: new Date(row.updated_at),
   }
 }
@@ -132,7 +134,7 @@ export async function getBrandWithSetup(
 ): Promise<{ id: string; name: string; slug: string; logoUrl: string | null; fontUrl: string | null; primaryColor: string } & BrandSetup> {
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, logo_url, font_url, primary_color, voice, tone, target_audience, value_proposition, content_pillars, restrictions, updated_at')
+    .select('id, name, slug, logo_url, font_url, primary_color, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
     .eq('id', brandId)
     .single()
   if (error) throw new Error(error.message)
@@ -154,7 +156,7 @@ export async function getBrandSetup(
 ): Promise<BrandSetup | null> {
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, updated_at')
+    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
     .eq('id', brandId)
     .single()
   if (error) throw new Error(error.message)
@@ -174,10 +176,11 @@ export async function upsertBrandSetup(
       value_proposition: setup.valueProposition,
       content_pillars: setup.contentPillars,
       restrictions: setup.restrictions,
+      monthly_pieces_limit: setup.monthlyPiecesLimit ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', setup.brandId)
-    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, updated_at')
+    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
     .single()
   if (error) throw new Error(error.message)
   return toSetup(data as BrandDetailRow)

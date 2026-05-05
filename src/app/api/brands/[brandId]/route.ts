@@ -46,6 +46,7 @@ export async function PATCH(
       valueProposition: body.valueProposition ?? '',
       contentPillars: body.contentPillars ?? [],
       restrictions: body.restrictions ?? [],
+      monthlyPiecesLimit: typeof body.monthlyPiecesLimit === 'number' ? body.monthlyPiecesLimit : undefined,
       updatedAt: new Date(),
     })
     return NextResponse.json({ data: setup })

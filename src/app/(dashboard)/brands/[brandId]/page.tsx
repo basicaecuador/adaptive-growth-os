@@ -48,6 +48,7 @@ export default function BrandSetupPage({ params }: Props) {
   const [valueProposition, setValueProposition] = useState('')
   const [contentPillars, setContentPillars] = useState<string[]>([])
   const [restrictions, setRestrictions] = useState<string[]>([])
+  const [monthlyPiecesLimit, setMonthlyPiecesLimit] = useState<number | ''>('')
   const [pillarInput, setPillarInput] = useState('')
   const [restrictionInput, setRestrictionInput] = useState('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -68,6 +69,7 @@ export default function BrandSetupPage({ params }: Props) {
     setValueProposition(brand.valueProposition ?? '')
     setContentPillars(brand.contentPillars ?? [])
     setRestrictions(brand.restrictions ?? [])
+    setMonthlyPiecesLimit(brand.monthlyPiecesLimit ?? '')
     setLogoUrl(brand.logoUrl ?? null)
     setFontUrl(brand.fontUrl ?? null)
     setFontName(brand.fontUrl ? (brand.fontUrl.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '') : '')
@@ -161,7 +163,7 @@ export default function BrandSetupPage({ params }: Props) {
       const res = await fetch(`/api/brands/${brandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice, tone, targetAudience, valueProposition, contentPillars, restrictions, primaryColor }),
+        body: JSON.stringify({ voice, tone, targetAudience, valueProposition, contentPillars, restrictions, primaryColor, monthlyPiecesLimit: monthlyPiecesLimit === '' ? undefined : monthlyPiecesLimit }),
       })
       if (!res.ok) throw new Error('Error al guardar')
       invalidateBrand()
@@ -410,6 +412,34 @@ export default function BrandSetupPage({ params }: Props) {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Plan mensual contratado */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div>
+            <h2 className="font-semibold text-card-foreground">Plan mensual contratado</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Define el número máximo de piezas incluidas en el plan mensual del cliente. El sistema alertará si se requieren piezas adicionales.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Input
+              id="monthlyPiecesLimit"
+              type="number"
+              min={1}
+              max={500}
+              placeholder="Ej: 12"
+              value={monthlyPiecesLimit}
+              onChange={e => setMonthlyPiecesLimit(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">piezas / mes</span>
+            {monthlyPiecesLimit !== '' && (
+              <span className="text-xs text-muted-foreground bg-muted rounded-full px-3 py-1">
+                Límite: {monthlyPiecesLimit} piezas mensuales
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Visual identity */}
