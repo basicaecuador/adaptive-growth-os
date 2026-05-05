@@ -8,7 +8,9 @@ export const maxDuration = 60
 
 function buildImagePrompt(development: string, format: string, hook: string): string {
   const isCarousel = /carrusel|carousel/i.test(format)
+  const isVertical = /historia|story/i.test(format)
 
+  // Extract visual description only — never copy/script text
   let visualDesc = ''
 
   if (isCarousel) {
@@ -21,14 +23,18 @@ function buildImagePrompt(development: string, format: string, hook: string): st
     visualDesc = visual?.[1]?.trim() ?? ''
   }
 
-  if (!visualDesc) {
-    visualDesc = hook
-  }
+  if (!visualDesc) visualDesc = hook
 
-  const isVertical = /historia|story/i.test(format)
-  const orientation = isVertical ? 'vertical portrait format' : 'square format'
+  const aspectRatio = isVertical
+    ? 'vertical 9:16 portrait, subject centered away from top and bottom 15%'
+    : 'square 1:1, subject centered with breathing room'
 
-  return `Ultra-realistic professional commercial photography. ${visualDesc}. Natural lighting, sharp focus, high resolution, cinematic depth of field, ${orientation}, Instagram-ready social media content, brand photography quality. Photorealistic, no text overlays, no watermarks.`
+  return [
+    'Ultra-realistic professional commercial lifestyle photography, warm natural light, vibrant colors, sharp perfect focus, 4K quality.',
+    `Subject: ${visualDesc}.`,
+    'Mood: positive, aspirational, authentic. Real people in real everyday situations, not artificial stock photo poses.',
+    `Format: ${aspectRatio}. No text overlays, no logos, no watermarks, no frames.`,
+  ].join(' ')
 }
 
 export async function POST(

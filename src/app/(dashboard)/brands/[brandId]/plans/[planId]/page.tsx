@@ -136,48 +136,56 @@ function parseScenes(development: string): { label: string; visual: string; voic
   return results
 }
 
+function extractVisual(development: string, slides: ReturnType<typeof parseSlides>, segmentIdx: number, isCarousel: boolean): string {
+  if (isCarousel) {
+    const slide = slides[segmentIdx]
+    if (slide?.visual) return slide.visual
+  }
+  const m = development.match(/VISUAL:\s*([^\n]+)/i)
+  if (m?.[1]?.trim()) return m[1].trim()
+  return ''
+}
+
 function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: number): string {
   const style = VISUAL_STYLES.find(s => s.id === styleId)!
   const format = idea.contentType ?? 'Post'
   const isCarousel = /carrusel|carousel/i.test(format)
   const isVertical = /historia|story/i.test(format)
   const development = (idea.development ?? '').trim()
+  const slides = isCarousel ? parseSlides(development) : []
 
-  const technical = isVertical
-    ? 'Formato vertical 9:16, sujeto centrado alejado del 15% superior e inferior (safe zone). Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop.'
-    : 'Formato cuadrado 1:1, sujeto centrado en el encuadre. Sin texto superpuesto, sin marcas de agua, alta resolución, composición thumb-stop.'
+  // Extract ONLY the visual description — never the copy text
+  const rawVisual = extractVisual(development, slides, segmentIdx, isCarousel)
 
+  // If no visual field exists, derive one from the hook (strip promotional language)
+  const visualSubject = rawVisual || idea.hook || ''
+
+  // Composition hint based on position in carousel
+  let composition = ''
   if (isCarousel) {
-    const slides = parseSlides(development)
-    const slide = slides[segmentIdx]
-
-    // Find the full raw line for this slide in the development (includes all effects/details)
-    const rawSlideLine = development
-      .split('\n')
-      .find(l => new RegExp(`^S${segmentIdx + 1}[^\\d]`, 'i').test(l.trim()))
-      ?.trim() ?? ''
-
     const isFirst = segmentIdx === 0
     const isLast = segmentIdx === slides.length - 1
-    const context = isFirst
-      ? 'Hook slide — parar el scroll en los primeros 3 segundos, impacto visual fuerte'
+    composition = isFirst
+      ? 'Composición de alto impacto, primer plano llamativo que detiene el scroll'
       : isLast
-      ? 'Slide CTA — llamada a la acción clara, marca visible'
-      : 'Slide de información — composición limpia y legible'
-
-    const slideContent = rawSlideLine || (slide ? `${slide.label}: "${slide.text}" | Visual: ${slide.visual}` : `Hook: "${idea.hook}"`)
-
-    return `${style.modifier}.\n\nGuion del slide:\n${slideContent}\n\nContexto: ${context}.\n\n${technical}`
+      ? 'Composición limpia con espacio en blanco, sensación de llamada a la acción'
+      : 'Composición equilibrada, clara y legible'
   }
 
-  // Post / non-carousel: vuelca el guion completo que ya generó Claude
-  const lines = [
-    `Hook: "${idea.hook}"`,
-    development,
-    idea.cta ? `CTA: "${idea.cta}"` : '',
+  const aspectRatio = isVertical
+    ? 'vertical 9:16, sujeto en zona segura central (alejado 15% bordes superior e inferior)'
+    : 'cuadrado 1:1, sujeto centrado con espacio para respirar'
+
+  // Build a clean photography brief — only visual language, no copy text
+  const parts = [
+    `${style.modifier}, iluminación natural cálida, colores vibrantes, enfoque nítido perfecto, fotografía 4K.`,
+    `Sujeto: ${visualSubject}.`,
+    `Mood: positivo, aspiracional, auténtico. Personas reales en situaciones cotidianas reales, no poses artificiales de stock.`,
+    composition ? `Composición: ${composition}.` : '',
+    `Formato ${aspectRatio}. Sin texto superpuesto, sin logos, sin marcas de agua, sin marcos.`,
   ].filter(Boolean).join('\n')
 
-  return `${style.modifier}.\n\nGuion completo generado:\n${lines}\n\n${technical}`
+  return parts
 }
 
 function CreativeTools({
