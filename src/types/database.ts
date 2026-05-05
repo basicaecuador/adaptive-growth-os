@@ -83,6 +83,7 @@ export interface Database {
           value_proposition: string | null
           content_pillars: string[] | null
           restrictions: string[] | null
+          monthly_pieces_limit: number | null
           created_at: string
           updated_at: string
         }
@@ -101,6 +102,7 @@ export interface Database {
           value_proposition?: string | null
           content_pillars?: string[] | null
           restrictions?: string[] | null
+          monthly_pieces_limit?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -119,6 +121,7 @@ export interface Database {
           value_proposition?: string | null
           content_pillars?: string[] | null
           restrictions?: string[] | null
+          monthly_pieces_limit?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -443,6 +446,70 @@ export interface Database {
           },
           {
             foreignKeyName: 'feedback_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      content_expansion_requests: {
+        Row: {
+          id: string
+          plan_id: string
+          brand_id: string
+          included_pieces: number
+          required_pieces: number
+          additional_pieces: number
+          reason: string
+          status: string
+          requested_at: string
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          brand_id: string
+          included_pieces: number
+          required_pieces: number
+          additional_pieces: number
+          reason: string
+          status?: string
+          requested_at?: string
+          requested_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          brand_id?: string
+          included_pieces?: number
+          required_pieces?: number
+          additional_pieces?: number
+          reason?: string
+          status?: string
+          requested_at?: string
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_expansion_requests_plan_id_fkey'
+            columns: ['plan_id']
+            referencedRelation: 'content_plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'content_expansion_requests_brand_id_fkey'
             columns: ['brand_id']
             referencedRelation: 'brands'
             referencedColumns: ['id']
