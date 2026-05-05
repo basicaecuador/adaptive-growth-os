@@ -17,7 +17,7 @@ export async function GET(
     const apiKey = process.env.HIGGSFIELD_API_KEY
     if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
 
-    const authHeader = `Basic ${Buffer.from(apiKey).toString('base64')}`
+    const authHeader = `Key ${apiKey}`
 
     // Try fetching status from the jobs endpoint
     const res = await fetch(`https://platform.higgsfield.ai/v1/jobs/${jobId}`, {

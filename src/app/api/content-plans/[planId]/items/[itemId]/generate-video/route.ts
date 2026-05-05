@@ -79,8 +79,7 @@ async function submitHiggsfieldJob(prompt: string, motionId: string, referenceIm
   const apiKey = process.env.HIGGSFIELD_API_KEY
   if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
 
-  // API key format: KEY_ID:KEY_SECRET — encode as Basic auth
-  const authHeader = `Basic ${Buffer.from(apiKey).toString('base64')}`
+  const authHeader = `Key ${apiKey}`
 
   const input: Record<string, unknown> = { prompt }
   if (motionId && motionId !== 'static') input.motion = motionId
