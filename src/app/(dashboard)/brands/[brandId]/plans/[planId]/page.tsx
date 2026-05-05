@@ -349,7 +349,7 @@ function CreativeTools({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[10px] text-muted-foreground">Prompt para DALL-E 3 — edítalo antes de generar</p>
+                  <p className="text-[10px] text-muted-foreground">Prompt para GPT Image — edítalo antes de generar</p>
                   <textarea
                     value={promptText}
                     onChange={e => setPromptText(e.target.value)}
@@ -364,7 +364,7 @@ function CreativeTools({
                       className="gap-1.5"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con DALL-E 3'}
+                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con GPT Image'}
                     </Button>
                     <button
                       onClick={() => { setPromptReady(false); setImageUrl(null) }}
@@ -381,7 +381,7 @@ function CreativeTools({
                   </div>
                   {generatingImage && (
                     <p className="text-[11px] text-muted-foreground animate-pulse">
-                      DALL-E 3 está creando la imagen en alta resolución...
+                      GPT Image 1 está generando la imagen en alta calidad...
                     </p>
                   )}
                 </div>
@@ -1223,7 +1223,14 @@ export default function PlanDetailPage({ params }: Props) {
               </div>
             )}
 
-            <CreativeTools idea={displayIdea} planId={planId} itemId={reviewItemId!} />
+            {isApprovedReview && (
+              <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <Sparkles className="h-4 w-4 text-blue-500 shrink-0" />
+                <p className="text-sm text-blue-700">
+                  Pieza aprobada. Genera los copys finales y luego podrás crear el arte visual.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1263,6 +1270,13 @@ export default function PlanDetailPage({ params }: Props) {
               {hasProductionCopy ? <Check className="h-3.5 w-3.5" /> : '4'}
             </span>
             <span className={hasProductionCopy ? 'text-muted-foreground' : 'font-medium text-foreground'}>Copys</span>
+            {hasProductionCopy && (
+              <>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">5</span>
+                <span className="font-medium text-foreground">Arte</span>
+              </>
+            )}
           </>
         )}
       </div>
@@ -1331,8 +1345,8 @@ export default function PlanDetailPage({ params }: Props) {
               </div>
               <p className={`text-xs ${hasProductionCopy ? 'text-green-700' : 'text-violet-700'}`}>
                 {hasProductionCopy
-                  ? 'Los captions, hooks y hashtags están listos para copiar y publicar.'
-                  : 'Claude genera el caption final, hook en pantalla y hashtags para cada pieza aprobada.'}
+                  ? 'Los copys están listos. Ahora puedes generar el arte visual para cada pieza.'
+                  : 'Claude genera el caption final, hook en pantalla y hashtags. Luego podrás crear el arte visual de cada pieza.'}
               </p>
             </div>
             <Button
@@ -1469,10 +1483,17 @@ export default function PlanDetailPage({ params }: Props) {
         ))
       })()}
 
-      {/* Production copy document */}
+      {/* Step 5: Copys + Arte */}
       {hasProductionCopy && (
-        <div className="mt-8 space-y-4">
-          <h2 className="text-base font-bold text-foreground">Copys de producción</h2>
+        <div className="mt-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background shrink-0">5</div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">Copys y arte visual</h2>
+              <p className="text-xs text-muted-foreground">Copy listo para publicar + imagen generada con IA para cada pieza</p>
+            </div>
+          </div>
+
           {items.filter(i => i.status === 'approved' && i.observations).map((item, idx) => {
             const idea = item.rawIdeas?.ideas[0]
             const ideaCfg = item.selectedIdeaType ? IDEA_CONFIG[item.selectedIdeaType] : null
@@ -1504,16 +1525,24 @@ export default function PlanDetailPage({ params }: Props) {
                     onClick={() => navigator.clipboard.writeText(item.observations ?? '')}
                     className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
-                    Copiar
+                    Copiar copy
                   </button>
                 </div>
-                {/* Copy body */}
-                <div className="p-4 space-y-4">
+
+                {/* Copy */}
+                <div className="px-4 pt-4 pb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Copy</p>
                   <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-sans">
                     {item.observations}
                   </p>
-                  {idea && <CreativeTools idea={idea} planId={planId} itemId={item.id} compact />}
                 </div>
+
+                {/* Arte visual — separator */}
+                {idea && (
+                  <div className="px-4 pb-4 pt-3 border-t border-border mt-3">
+                    <CreativeTools idea={idea} planId={planId} itemId={item.id} />
+                  </div>
+                )}
               </div>
             )
           })}

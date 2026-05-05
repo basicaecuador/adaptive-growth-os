@@ -60,7 +60,8 @@ export async function POST(
 
     const formatFromIdea = rawIdeas?.ideas?.[0]?.contentType ?? 'Post'
     const isVertical = /historia|story/i.test(formatFromIdea)
-    const size = isVertical ? '1024x1792' : '1024x1024'
+    // gpt-image-1 supports: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
+    const size = isVertical ? '1024x1536' : '1024x1024'
 
     let prompt: string
     if (customPrompt) {
@@ -78,22 +79,24 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         prompt,
         n: 1,
         size,
-        quality: 'hd',
-        style: 'natural',
+        quality: 'high',
+        response_format: 'url',
       }),
     })
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body?.error?.message ?? `Error DALL-E (HTTP ${res.status})`)
+      const errBody = await res.json().catch(() => ({}))
+      throw new Error(errBody?.error?.message ?? `Error generando imagen (HTTP ${res.status})`)
     }
 
     const result = await res.json()
-    const imageUrl: string = result.data[0].url
+    const generated = result.data[0]
+    // gpt-image-1: prefer url, fall back to base64 if needed
+    const imageUrl: string = generated.url ?? `data:image/png;base64,${generated.b64_json}`
 
     return NextResponse.json({ data: { imageUrl } })
   } catch (err) {
