@@ -94,6 +94,13 @@ export interface PlanIdea {
   funnelObjective: string
   hook: string
   hookType: string
+  hookOptions?: string[]
+  selectedHookReason?: string
+  limitingBelief?: string
+  motivator?: string
+  creativeReference?: string
+  nativeResource?: string
+  alternateCtas?: string[]
   higgsfieldPrompt: string
   development: string
   cta: string
