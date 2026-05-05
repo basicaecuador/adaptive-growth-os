@@ -109,6 +109,13 @@ const FUNNEL_FOCUS_OPTIONS = [
 
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
+const IMAGE_MODELS = [
+  { id: 'flux' as const, label: 'Flux 1.1 Pro', desc: 'Mejor calidad' },
+  { id: 'gpt-image-1' as const, label: 'gpt-image-1', desc: 'OpenAI' },
+  { id: 'dalle3' as const, label: 'DALL-E 3', desc: 'Más rápido' },
+]
+type ImageModelId = typeof IMAGE_MODELS[number]['id']
+
 const VISUAL_STYLES = [
   { id: 'fotorealista' as const, label: 'Fotorealista', desc: 'Foto comercial', modifier: 'ultra-realistic commercial photography, natural daylight, sharp focus, Canon DSLR quality' },
   { id: 'cinematico' as const, label: 'Cine', desc: 'Luz dramática', modifier: 'cinematic film photography, dramatic moody lighting, shallow depth of field, movie still' },
@@ -216,6 +223,7 @@ function CreativeTools({
   const [copied, setCopied] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [visualStyle, setVisualStyle] = useState<VisualStyleId>('fotorealista')
+  const [generatorModel, setGeneratorModel] = useState<ImageModelId>('flux')
   const [segmentIdx, setSegmentIdx] = useState(0)
   const [promptText, setPromptText] = useState('')
   const [promptReady, setPromptReady] = useState(false)
@@ -246,7 +254,7 @@ function CreativeTools({
 
   async function handleGenerateImage() {
     try {
-      const result = await generateImage({ itemId, prompt: promptText })
+      const result = await generateImage({ itemId, prompt: promptText, model: generatorModel })
       setImageUrl(result.imageUrl)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar imagen')
@@ -311,6 +319,29 @@ function CreativeTools({
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Generar imagen con IA
               </p>
+
+              {/* Model selector */}
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1.5">Generador de imagen</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {IMAGE_MODELS.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setGeneratorModel(m.id); setPromptReady(false) }}
+                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
+                        generatorModel === m.id
+                          ? 'border-foreground bg-foreground text-background'
+                          : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                      }`}
+                    >
+                      <span className="block text-xs font-medium">{m.label}</span>
+                      <span className={`block text-[9px] mt-0.5 ${generatorModel === m.id ? 'opacity-70' : 'opacity-50'}`}>
+                        {m.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Style selector */}
               <div>
@@ -388,7 +419,7 @@ function CreativeTools({
                       className="gap-1.5"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con gpt-image-1'}
+                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : `Generar con ${IMAGE_MODELS.find(m => m.id === generatorModel)?.label}`}
                     </Button>
                     <button
                       onClick={() => { setPromptReady(false); setImageUrl(null) }}
@@ -405,7 +436,11 @@ function CreativeTools({
                   </div>
                   {generatingImage && (
                     <p className="text-[11px] text-muted-foreground animate-pulse">
-                      gpt-image-1 está generando la imagen — puede tomar hasta 60 segundos...
+                      {generatorModel === 'flux'
+                        ? 'Flux 1.1 Pro generando — ~30 segundos...'
+                        : generatorModel === 'gpt-image-1'
+                        ? 'gpt-image-1 generando — puede tomar hasta 90 segundos...'
+                        : 'DALL-E 3 generando — ~20 segundos...'}
                     </p>
                   )}
                 </div>
