@@ -100,7 +100,7 @@ export interface PlanIdea {
   motivator?: string
   creativeReference?: string
   nativeResource?: string
-  alternateCtas?: string[]
+  alternateCtas?: { method: string; cta: string; closing: string }[]
   higgsfieldPrompt: string
   development: string
   cta: string
