@@ -388,7 +388,7 @@ function CreativeTools({
                       className="gap-1.5"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con DALL-E 3'}
+                      {generatingImage ? 'Generando...' : imageUrl ? 'Regenerar' : 'Generar con gpt-image-1'}
                     </Button>
                     <button
                       onClick={() => { setPromptReady(false); setImageUrl(null) }}
@@ -405,7 +405,7 @@ function CreativeTools({
                   </div>
                   {generatingImage && (
                     <p className="text-[11px] text-muted-foreground animate-pulse">
-                      DALL-E 3 1 está generando la imagen en alta calidad...
+                      gpt-image-1 está generando la imagen — puede tomar hasta 60 segundos...
                     </p>
                   )}
                 </div>

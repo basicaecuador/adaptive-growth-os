@@ -75,7 +75,7 @@ export async function POST(
       prompt = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
     }
 
-    const size = isVertical ? '1024x1792' : '1024x1024'
+    const size = isVertical ? '1024x1536' : '1024x1024'
 
     const falRes = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -84,12 +84,11 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         prompt,
         n: 1,
         size,
-        quality: 'standard',
-        style: 'natural',
+        quality: 'medium',
       }),
     })
 
@@ -99,8 +98,9 @@ export async function POST(
     }
 
     const result = await falRes.json()
-    const imageUrl: string = result.data?.[0]?.url
-    if (!imageUrl) throw new Error('No se recibió imagen')
+    const b64 = result.data?.[0]?.b64_json
+    if (!b64) throw new Error('No se recibió imagen')
+    const imageUrl = `data:image/png;base64,${b64}`
 
     return NextResponse.json({ data: { imageUrl } })
   } catch (err) {
