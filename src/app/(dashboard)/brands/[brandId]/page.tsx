@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check } from 'lucide-react'
+import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check, Package } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -416,8 +416,10 @@ export default function BrandSetupPage({ params }: Props) {
 
         {/* Plan mensual contratado */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div>
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold text-card-foreground">Plan mensual contratado</h2>
+          </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Define el número máximo de piezas incluidas en el plan mensual del cliente. El sistema alertará si se requieren piezas adicionales.
             </p>
