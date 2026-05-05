@@ -2,7 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink, Film, Image, Layers } from 'lucide-react'
+import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink, Film, Image, Layers, MessageCircle, Share2, Globe, ThumbsUp, Upload, Calendar, Bookmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SafeZonePreview } from '@/components/creative/safe-zone-preview'
 import { AdobeExpressBtn } from '@/components/creative/adobe-express-btn'
@@ -17,6 +17,7 @@ import {
   useGenerateImage,
   useGenerateVideo,
   useHiggsfieldStatus,
+  useUploadAsset,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
 import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
@@ -134,6 +135,22 @@ const VISUAL_STYLES = [
 ]
 type VisualStyleId = typeof VISUAL_STYLES[number]['id']
 
+const PAUTA_BY_STAGE: Record<FunnelStage, { objetivo: string; tipo: string; presupuesto: string; plazo: string; tip: string }> = {
+  awareness:     { objetivo: 'Reconocimiento de marca / Alcance', tipo: 'CPM — costo por mil impresiones', presupuesto: '$5–$15 USD/día', plazo: '7–14 días', tip: 'Optimiza por frecuencia 3–5x/semana; audiencias amplias de interés' },
+  consideration: { objetivo: 'Tráfico al sitio / Interacción',    tipo: 'CPC — costo por clic',              presupuesto: '$8–$20 USD/día', plazo: '7–10 días', tip: 'Audiencias de interés + retargeting suave de visitantes recientes' },
+  conversion:    { objetivo: 'Conversiones / Ventas directas',    tipo: 'CPA — costo por acción',            presupuesto: '$15–$40 USD/día', plazo: '5–7 días', tip: 'Activa el píxel con evento de compra; lookalike 2% de compradores' },
+  retention:     { objetivo: 'Engagement / Fidelización',         tipo: 'CPE — costo por engagement',        presupuesto: '$3–$10 USD/día', plazo: '14–30 días', tip: 'Segmenta solo clientes activos y suscriptores; excluye prospectos' },
+  remarketing:   { objetivo: 'Retargeting / Re-captación',        tipo: 'CPA — costo por acción',            presupuesto: '$10–$25 USD/día', plazo: '7–14 días', tip: 'Audiencia: visitantes últimos 30 días + carrito abandonado' },
+}
+
+const SCHEDULE_DAY_BY_STAGE: Record<FunnelStage, string> = {
+  awareness:     'Lunes o martes — inicio de semana para mayor alcance orgánico',
+  consideration: 'Miércoles o jueves — audiencia más activa y receptiva',
+  conversion:    'Viernes o sábado — mayor intención de compra en fin de semana',
+  retention:     'Cualquier día — prioriza consistencia sobre timing exacto',
+  remarketing:   'Domingo o lunes — alto retorno post fin de semana',
+}
+
 function parseSlides(development: string): { label: string; visual: string; text: string }[] {
   const results: { label: string; visual: string; text: string }[] = []
   for (const line of development.split('\n')) {
@@ -228,6 +245,141 @@ function getFormatIcon(contentType: string) {
   return <Image className="h-3 w-3 shrink-0" />
 }
 
+function InstagramFeedMockup({ asset, copy }: { asset: GeneratedAsset; copy: string }) {
+  const isVideo = asset.model === 'upload-video'
+  return (
+    <div className="rounded-2xl border-[3px] border-gray-800 bg-white overflow-hidden shadow-xl w-[260px] shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
+        <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-px">
+          <div className="h-full w-full rounded-full bg-gray-200" />
+        </div>
+        <span className="text-[11px] font-semibold text-gray-900 flex-1">tu_marca</span>
+        <span className="text-gray-400 text-xs tracking-widest">•••</span>
+      </div>
+      <div className="aspect-square w-full bg-gray-100">
+        {isVideo
+          ? <video src={asset.url} className="h-full w-full object-cover" muted loop />
+          : <img src={asset.url} alt="" className="h-full w-full object-cover" />}
+      </div>
+      <div className="px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-3">
+          <Heart className="h-5 w-5 text-gray-800" />
+          <MessageCircle className="h-5 w-5 text-gray-800" />
+          <Share2 className="h-5 w-5 text-gray-800" />
+          <Bookmark className="h-5 w-5 text-gray-800 ml-auto" />
+        </div>
+        <p className="text-[10px] font-semibold text-gray-900">1,240 Me gusta</p>
+        <p className="text-[10px] text-gray-700 line-clamp-3 leading-relaxed">
+          <span className="font-semibold">tu_marca </span>{copy.slice(0, 120)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function VerticalMockup({ asset, copy, platform = 'Instagram' }: { asset: GeneratedAsset; copy: string; platform?: string }) {
+  const isVideo = asset.model === 'upload-video'
+  return (
+    <div className="rounded-2xl border-[3px] border-gray-800 bg-black overflow-hidden shadow-xl w-[150px] shrink-0" style={{ aspectRatio: '9/19.5' }}>
+      <div className="relative h-full w-full">
+        {isVideo
+          ? <video src={asset.url} className="absolute inset-0 h-full w-full object-cover" muted loop />
+          : <img src={asset.url} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+        <div className="absolute inset-0 flex flex-col justify-between p-2">
+          <div>
+            <div className="flex gap-0.5 mb-1.5">
+              {[1,2,3].map(i => (
+                <div key={i} className={`flex-1 h-0.5 rounded-full ${i === 1 ? 'bg-white' : 'bg-white/40'}`} />
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-5 w-5 rounded-full bg-white/30 border border-white/60" />
+              <span className="text-white text-[9px] font-semibold drop-shadow">{platform}</span>
+            </div>
+          </div>
+          <div className="rounded-lg bg-black/60 px-2 py-1.5">
+            <p className="text-white text-[8px] leading-relaxed line-clamp-3">{copy.slice(0, 80)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FacebookMockup({ asset, copy }: { asset: GeneratedAsset; copy: string }) {
+  return (
+    <div className="rounded-xl border border-gray-300 bg-white shadow-md w-[280px] shrink-0 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">M</div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-gray-900">Tu Marca</p>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-500">Hace 2 h</span>
+            <Globe className="h-2.5 w-2.5 text-gray-400" />
+          </div>
+        </div>
+      </div>
+      <p className="text-[10px] text-gray-700 px-3 pb-2 line-clamp-2 leading-relaxed">{copy.slice(0, 120)}</p>
+      <div className={`${asset.format === 'landscape' ? 'aspect-video' : 'aspect-square'} w-full bg-gray-100`}>
+        <img src={asset.url} alt="" className="h-full w-full object-cover" />
+      </div>
+      <div className="flex items-center gap-1 px-3 py-2 border-t border-gray-200">
+        <ThumbsUp className="h-3.5 w-3.5 text-blue-600" />
+        <span className="text-[9px] text-blue-600 font-medium mr-2">Me gusta</span>
+        <MessageCircle className="h-3.5 w-3.5 text-gray-500" />
+        <span className="text-[9px] text-gray-500 mr-2">Comentar</span>
+        <Share2 className="h-3.5 w-3.5 text-gray-500" />
+        <span className="text-[9px] text-gray-500">Compartir</span>
+      </div>
+    </div>
+  )
+}
+
+function SocialMockup({ asset, channel, copy }: { asset: GeneratedAsset; channel: string; copy: string }) {
+  if (/tiktok/i.test(channel)) return <VerticalMockup asset={asset} copy={copy} platform="TikTok" />
+  if (asset.format === 'story') return <VerticalMockup asset={asset} copy={copy} platform={/instagram/i.test(channel) ? 'Instagram' : 'Reel'} />
+  if (/facebook/i.test(channel)) return <FacebookMockup asset={asset} copy={copy} />
+  return <InstagramFeedMockup asset={asset} copy={copy} />
+}
+
+function PautaCard({ funnelStage, channel }: { funnelStage: FunnelStage; channel: string | null }) {
+  const pauta = PAUTA_BY_STAGE[funnelStage]
+  const scheduleDay = SCHEDULE_DAY_BY_STAGE[funnelStage]
+  return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Info para pauta publicitaria</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div>
+          <p className="text-[9px] text-blue-400 uppercase tracking-wider mb-0.5">Objetivo de campaña</p>
+          <p className="text-xs font-medium text-blue-900">{pauta.objetivo}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-blue-400 uppercase tracking-wider mb-0.5">Tipo de puja</p>
+          <p className="text-xs font-medium text-blue-900">{pauta.tipo}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-blue-400 uppercase tracking-wider mb-0.5">Presupuesto sugerido</p>
+          <p className="text-xs font-semibold text-blue-900">{pauta.presupuesto}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-blue-400 uppercase tracking-wider mb-0.5">Duración</p>
+          <p className="text-xs font-medium text-blue-900">{pauta.plazo}</p>
+        </div>
+      </div>
+      <div className="rounded-lg bg-blue-100 px-3 py-2">
+        <p className="text-[10px] text-blue-700 leading-relaxed">💡 {pauta.tip}</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <Calendar className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-[9px] text-blue-400 uppercase tracking-wider mb-0.5">Publicación recomendada</p>
+          <p className="text-xs text-blue-800">{scheduleDay}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CreativeTools({
   idea,
   planId,
@@ -246,6 +398,7 @@ function CreativeTools({
 
   const defaultFormat: AdFormat = /historia|story/i.test(idea.contentType ?? '') ? 'story' : 'square'
 
+  const [arteTab, setArteTab] = useState<'ia' | 'herramientas' | 'subir'>('ia')
   const [copied, setCopied] = useState(false)
   const [localAssets, setLocalAssets] = useState<GeneratedAsset[]>(persistedAssets)
   const [selectedFormat, setSelectedFormat] = useState<AdFormat>(defaultFormat)
@@ -254,6 +407,10 @@ function CreativeTools({
   const [generatorModel, setGeneratorModel] = useState<ImageModelId>('gpt-image-1')
   const [segmentIdx, setSegmentIdx] = useState(0)
   const [promptText, setPromptText] = useState('')
+  const [uploadFormat, setUploadFormat] = useState<AdFormat>(defaultFormat)
+  const [uploading, setUploading] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setLocalAssets(persistedAssets) }, [persistedAssets])
 
@@ -265,6 +422,7 @@ function CreativeTools({
   const { mutateAsync: generateImage } = useGenerateImage(planId)
   const { mutateAsync: generateVideo, isPending: generatingVideo } = useGenerateVideo(planId)
   const { mutateAsync: checkStatus } = useHiggsfieldStatus()
+  const { mutateAsync: uploadAsset } = useUploadAsset(planId)
 
   const [videoJobId, setVideoJobId] = useState<string | null>(null)
   const [videoStatus, setVideoStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
@@ -357,23 +515,71 @@ function CreativeTools({
     }
   }
 
-  return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Herramientas de producción
-      </p>
-      <div className="flex items-start gap-4">
-        {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
-        <div className="flex-1 min-w-0 space-y-4">
+  async function handleFileUpload() {
+    if (!uploadFile) return
+    setUploading(true)
+    try {
+      const result = await uploadAsset({ itemId, file: uploadFile, targetFormat: uploadFormat })
+      if (result.asset) {
+        setLocalAssets(prev => [...prev.filter(a => a.format !== uploadFormat), result.asset])
+        toast.success('Arte subido correctamente')
+        setUploadFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al subir arte')
+    } finally {
+      setUploading(false)
+    }
+  }
 
-          {/* Video: Higgsfield generation */}
+  function buildExternalPrompts(fmt: AdFormat) {
+    const ar = fmt === 'story' ? '9:16' : fmt === 'landscape' ? '16:9' : '1:1'
+    const baseLines = promptText.split('\n').filter(Boolean)
+    const coreSubject = baseLines[1]?.slice(0, 200) ?? idea.hook.slice(0, 150)
+    const styleHint = baseLines[0]?.slice(0, 80) ?? 'professional commercial photography'
+    return {
+      midjourney: `/imagine ${coreSubject}, ${styleHint}, studio lighting, tack-sharp --ar ${ar} --v 6 --quality 1 --style raw`,
+      firefly: `${coreSubject}. ${styleHint}. Soft studio lighting, high resolution, commercial photography quality.`,
+      canva: `${idea.hook.slice(0, 100)}. ${coreSubject.slice(0, 100)}. Social media ${fmt === 'story' ? 'story vertical' : fmt === 'landscape' ? 'landscape banner' : 'post'}.`,
+    }
+  }
+
+  const tabLabels = { ia: 'Generar con IA', herramientas: 'Herramientas externas', subir: 'Subir arte' } as const
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Internal tab bar */}
+      <div className="flex border-b border-border bg-muted/20">
+        {(['ia', 'herramientas', 'subir'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setArteTab(tab)}
+            className={`flex-1 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+              arteTab === tab
+                ? 'border-foreground text-foreground bg-background'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tabLabels[tab]}
+            {tab === 'subir' && localAssets.length > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-green-100 text-[9px] font-bold text-green-700">
+                {localAssets.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: Generar con IA ── */}
+      {arteTab === 'ia' && (
+        <div className="p-4 space-y-4">
+          {/* Video: Higgsfield */}
           {isVideo && (
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Generar video con Higgsfield IA
               </p>
-
-              {/* Scenes overview */}
               {scenes.length > 0 && (
                 <div className="flex gap-1 flex-wrap">
                   {scenes.map((sc) => (
@@ -383,103 +589,58 @@ function CreativeTools({
                   ))}
                 </div>
               )}
-
-              {/* Recommendation + generation */}
               {!videoPromptReady ? (
-                <Button
-                  onClick={handleRecommendAndPrepare}
-                  disabled={generatingVideo}
-                  size="sm"
-                  className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white"
-                >
+                <Button onClick={handleRecommendAndPrepare} disabled={generatingVideo} size="sm" className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white">
                   <Sparkles className="h-3.5 w-3.5" />
                   {generatingVideo ? 'Claude analizando guion...' : 'Recomendar efecto y generar video'}
                 </Button>
               ) : (
                 <div className="space-y-3">
-                  {/* Motion recommendation */}
                   {videoMotion && (
                     <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-500">Efecto recomendado</span>
                         <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">{videoMotion.name}</span>
                       </div>
-                      {videoMotion.reason && (
-                        <p className="text-xs text-violet-700 italic">{videoMotion.reason}</p>
-                      )}
+                      {videoMotion.reason && <p className="text-xs text-violet-700 italic">{videoMotion.reason}</p>}
                     </div>
                   )}
-
-                  {/* Editable prompt */}
                   <div className="space-y-1.5">
                     <p className="text-[10px] text-muted-foreground">Prompt para Higgsfield — edítalo si quieres ajustar</p>
-                    <textarea
-                      value={videoPrompt}
-                      onChange={e => setVideoPrompt(e.target.value)}
-                      rows={6}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
-                    />
+                    <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)} rows={6}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed" />
                   </div>
-
-                  {/* Status / video result */}
                   {videoStatus === 'pending' && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs text-amber-700 animate-pulse">
-                        Higgsfield está generando el video — verificando cada 6 segundos...
-                      </p>
-                      {videoJobId && (
-                        <p className="text-[10px] text-amber-500 mt-0.5">Job ID: {videoJobId}</p>
-                      )}
+                      <p className="text-xs text-amber-700 animate-pulse">Higgsfield está generando el video — verificando cada 6 segundos...</p>
+                      {videoJobId && <p className="text-[10px] text-amber-500 mt-0.5">Job ID: {videoJobId}</p>}
                     </div>
                   )}
-
                   {videoStatus === 'done' && videoUrl && (
                     <div className="space-y-2">
-                      <video
-                        src={videoUrl}
-                        controls
-                        autoPlay
-                        loop
-                        className="rounded-xl border border-border w-full max-w-sm shadow-sm"
-                      />
+                      <video src={videoUrl} controls autoPlay loop className="rounded-xl border border-border w-full max-w-sm shadow-sm" />
                       <div className="flex gap-2 flex-wrap">
-                        <a
-                          href={videoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Descargar video
+                        <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                          <ExternalLink className="h-3 w-3" /> Descargar video
                         </a>
-                        <button
-                          onClick={handleRegenerateVideo}
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Regenerar
+                        <button onClick={handleRegenerateVideo} className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                          <RefreshCw className="h-3 w-3" /> Regenerar
                         </button>
                       </div>
                     </div>
                   )}
-
                   {videoStatus === 'error' && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-center justify-between">
                       <p className="text-xs text-red-600">Falló la generación. Revisa tus créditos en Higgsfield.</p>
                       <button onClick={handleRegenerateVideo} className="text-xs text-red-600 underline">Reintentar</button>
                     </div>
                   )}
-
                   {videoStatus === 'idle' && (
                     <div className="flex gap-2 flex-wrap">
                       <Button onClick={handleRegenerateVideo} disabled={generatingVideo} size="sm" className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Generar video
+                        <Sparkles className="h-3.5 w-3.5" /> Generar video
                       </Button>
-                      <button
-                        onClick={() => { setVideoPromptReady(false); setVideoMotion(null); setVideoStatus('idle') }}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
+                      <button onClick={() => { setVideoPromptReady(false); setVideoMotion(null); setVideoStatus('idle') }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                         ← Volver
                       </button>
                       <button onClick={() => copyText(videoPrompt)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -492,92 +653,54 @@ function CreativeTools({
             </div>
           )}
 
-          {/* Static image generation */}
+          {/* Static: image generation */}
           {isStatic && (
             <div className="space-y-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Generar imagen con IA
-              </p>
-
-              {/* Model selector */}
               <div>
                 <p className="text-[10px] text-muted-foreground mb-1.5">Generador</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {IMAGE_MODELS.map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => setGeneratorModel(m.id)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
-                        generatorModel === m.id
-                          ? 'border-foreground bg-foreground text-background'
-                          : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                      }`}
-                    >
+                    <button key={m.id} onClick={() => setGeneratorModel(m.id)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${generatorModel === m.id ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'}`}>
                       <span className="block text-xs font-medium">{m.label}</span>
                       <span className={`block text-[9px] mt-0.5 ${generatorModel === m.id ? 'opacity-70' : 'opacity-50'}`}>{m.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Style selector */}
               <div>
                 <p className="text-[10px] text-muted-foreground mb-1.5">Estilo visual</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {VISUAL_STYLES.map(style => (
-                    <button
-                      key={style.id}
-                      onClick={() => setVisualStyle(style.id)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
-                        visualStyle === style.id
-                          ? 'border-foreground bg-foreground text-background'
-                          : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                      }`}
-                    >
+                    <button key={style.id} onClick={() => setVisualStyle(style.id)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors ${visualStyle === style.id ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'}`}>
                       <span className="block text-xs font-medium">{style.label}</span>
                       <span className={`block text-[9px] mt-0.5 ${visualStyle === style.id ? 'opacity-70' : 'opacity-50'}`}>{style.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Slide selector for carousel */}
               {isCarousel && slides.length > 0 && (
                 <div>
                   <p className="text-[10px] text-muted-foreground mb-1.5">Slide</p>
                   <div className="flex gap-1 flex-wrap">
                     {slides.map((slide, i) => (
-                      <button
-                        key={slide.label}
-                        onClick={() => setSegmentIdx(i)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          segmentIdx === i
-                            ? 'border-foreground bg-foreground text-background'
-                            : 'border-border bg-background text-muted-foreground hover:border-foreground/40'
-                        }`}
-                      >
+                      <button key={slide.label} onClick={() => setSegmentIdx(i)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${segmentIdx === i ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:border-foreground/40'}`}>
                         {slide.label}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Prompt textarea */}
               <div className="space-y-1.5">
-                <p className="text-[10px] text-muted-foreground">Prompt — edítalo si quieres ajustar</p>
-                <textarea
-                  value={promptText}
-                  onChange={e => setPromptText(e.target.value)}
-                  rows={6}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
-                />
+                <p className="text-[10px] text-muted-foreground">Prompt de imagen — edítalo si quieres ajustar</p>
+                <textarea value={promptText} onChange={e => setPromptText(e.target.value)} rows={5}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed" />
                 <button onClick={() => copyText(promptText)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
                   {copied ? 'Copiado ✓' : 'Copiar prompt'}
                 </button>
               </div>
-
-              {/* Format selector + generate buttons */}
               <div className="space-y-2">
                 <p className="text-[10px] text-muted-foreground mb-1">Formato del anuncio</p>
                 <div className="flex gap-1.5 flex-wrap">
@@ -586,15 +709,8 @@ function CreativeTools({
                     const hasAsset = localAssets.some(a => a.format === fmt)
                     const isGenFmt = generatingFormats.has(fmt)
                     return (
-                      <button
-                        key={fmt}
-                        onClick={() => setSelectedFormat(fmt)}
-                        className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors relative ${
-                          selectedFormat === fmt
-                            ? 'border-foreground bg-foreground text-background'
-                            : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                        }`}
-                      >
+                      <button key={fmt} onClick={() => setSelectedFormat(fmt)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-left transition-colors relative ${selectedFormat === fmt ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground'}`}>
                         <span className="block text-xs font-medium">{fmtCfg.label}</span>
                         <span className={`block text-[9px] mt-0.5 ${selectedFormat === fmt ? 'opacity-70' : 'opacity-50'}`}>{fmtCfg.platforms}</span>
                         {(hasAsset || isGenFmt) && (
@@ -604,44 +720,23 @@ function CreativeTools({
                     )
                   })}
                 </div>
-
                 <div className="flex gap-2 flex-wrap">
-                  <Button
-                    onClick={() => handleGenerateFormat(selectedFormat)}
-                    disabled={!promptText.trim() || generatingFormats.has(selectedFormat)}
-                    size="sm"
-                    className="gap-1.5"
-                  >
+                  <Button onClick={() => handleGenerateFormat(selectedFormat)} disabled={!promptText.trim() || generatingFormats.has(selectedFormat)} size="sm" className="gap-1.5">
                     <Sparkles className="h-3.5 w-3.5" />
-                    {generatingFormats.has(selectedFormat)
-                      ? 'Generando...'
-                      : `Generar ${AD_FORMATS[selectedFormat].label}`}
+                    {generatingFormats.has(selectedFormat) ? 'Generando...' : `Generar ${AD_FORMATS[selectedFormat].label}`}
                   </Button>
-                  <Button
-                    onClick={handleGenerateAll}
-                    disabled={!promptText.trim() || generatingFormats.size > 0}
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Generar todos los formatos
+                  <Button onClick={handleGenerateAll} disabled={!promptText.trim() || generatingFormats.size > 0} size="sm" variant="outline" className="gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Generar todos los formatos
                   </Button>
-                  <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
                 </div>
-
                 {generatingFormats.size > 0 && (
                   <p className="text-[11px] text-muted-foreground animate-pulse">
-                    {generatorModel === 'flux' ? 'Flux generando — ~30s por formato...'
-                      : generatorModel === 'gpt-image-1' ? 'gpt-image-1 generando — ~90s por formato...'
-                      : 'DALL-E 3 generando — ~20s por formato...'}
+                    {generatorModel === 'flux' ? 'Flux generando — ~30s por formato...' : generatorModel === 'gpt-image-1' ? 'gpt-image-1 generando — ~90s por formato...' : 'DALL-E 3 generando — ~20s por formato...'}
                   </p>
                 )}
               </div>
-
-              {/* Generated assets grid */}
               {localAssets.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Artes generadas — {localAssets.length} formato{localAssets.length !== 1 ? 's' : ''}
                   </p>
@@ -655,36 +750,20 @@ function CreativeTools({
                           <p className="text-[10px] font-medium text-muted-foreground">{fmtCfg.label}</p>
                           <div className={`${fmtCfg.aspectClass} ${fmtCfg.previewClass} w-full overflow-hidden rounded-lg border border-border bg-muted`}>
                             {isGenFmt ? (
-                              <div className="h-full w-full flex items-center justify-center">
-                                <span className="text-[10px] text-muted-foreground animate-pulse">Generando...</span>
-                              </div>
+                              <div className="h-full w-full flex items-center justify-center"><span className="text-[10px] text-muted-foreground animate-pulse">Generando...</span></div>
                             ) : asset ? (
                               <img src={asset.url} alt={asset.label} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="h-full w-full flex items-center justify-center">
-                                <span className="text-[10px] text-muted-foreground/40">Sin generar</span>
-                              </div>
+                              <div className="h-full w-full flex items-center justify-center"><span className="text-[10px] text-muted-foreground/40">Sin generar</span></div>
                             )}
                           </div>
                           {asset && (
                             <div className="flex gap-1.5 flex-wrap">
-                              <a
-                                href={asset.url}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                <ExternalLink className="h-2.5 w-2.5" />
-                                Descargar
+                              <a href={asset.url} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                                <ExternalLink className="h-2.5 w-2.5" /> Descargar
                               </a>
-                              <button
-                                onClick={() => handleGenerateFormat(fmt)}
-                                disabled={generatingFormats.has(fmt)}
-                                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-                              >
-                                <RefreshCw className="h-2.5 w-2.5" />
-                                Regen.
+                              <button onClick={() => handleGenerateFormat(fmt)} disabled={generatingFormats.has(fmt)} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40">
+                                <RefreshCw className="h-2.5 w-2.5" /> Regen.
                               </button>
                             </div>
                           )}
@@ -694,17 +773,158 @@ function CreativeTools({
                   </div>
                 </div>
               )}
-
             </div>
           )}
 
           {isGoogle && (
-            <p className="text-xs text-muted-foreground">
-              Copia el texto del anuncio y créalo en Google Ads Manager.
-            </p>
+            <p className="text-xs text-muted-foreground">Copia el texto del anuncio y créalo en Google Ads Manager.</p>
           )}
         </div>
-      </div>
+      )}
+
+      {/* ── TAB: Herramientas externas ── */}
+      {arteTab === 'herramientas' && (
+        <div className="p-4 space-y-5">
+          {/* Guion de referencia */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Guion / guía de referencia</p>
+            <div className="rounded-lg bg-muted/60 border border-border px-3 py-3 max-h-52 overflow-y-auto">
+              <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                {(idea.development ?? idea.hook ?? '').trim()}
+              </p>
+            </div>
+          </div>
+
+          {/* Safe zone preview */}
+          {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
+
+          {/* Prompts por formato */}
+          {isStatic && AD_FORMAT_KEYS.map(fmt => {
+            const prompts = buildExternalPrompts(fmt)
+            return (
+              <div key={fmt} className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Prompts para {AD_FORMATS[fmt].label}
+                </p>
+                {[
+                  { tool: 'Midjourney', color: 'border-indigo-200 bg-indigo-50', textColor: 'text-indigo-700', prompt: prompts.midjourney, desc: 'Discord · /imagine [pega aquí]' },
+                  { tool: 'Adobe Firefly', color: 'border-orange-200 bg-orange-50', textColor: 'text-orange-700', prompt: prompts.firefly, desc: 'firefly.adobe.com → Text to Image' },
+                  { tool: 'Canva AI', color: 'border-teal-200 bg-teal-50', textColor: 'text-teal-700', prompt: prompts.canva, desc: 'Canva → Magic Media → Imagen' },
+                ].map(({ tool, color, textColor, prompt, desc }) => (
+                  <div key={tool} className={`rounded-lg border ${color} p-3 space-y-2`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-semibold ${textColor}`}>{tool}</span>
+                      <span className="text-[9px] text-muted-foreground">{desc}</span>
+                    </div>
+                    <p className="text-[10px] font-mono text-foreground/70 leading-relaxed bg-black/5 rounded px-2 py-1.5 break-all">
+                      {prompt}
+                    </p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(prompt); toast.success(`Prompt ${tool} copiado`) }}
+                      className={`inline-flex items-center gap-1 text-[10px] ${textColor} hover:opacity-70 transition-opacity`}
+                    >
+                      <Copy className="h-3 w-3" /> Copiar prompt
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-3 space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Flujo recomendado</p>
+            {[
+              '1. Genera el arte en la herramienta que prefieras usando el prompt de arriba',
+              '2. Agrega el logo y texto en Adobe Express o Canva',
+              '3. Exporta en los formatos que necesitas (cuadrado, vertical, horizontal)',
+              '4. Sube los archivos en la pestaña "Subir arte" para guardarlos aquí',
+            ].map((step, i) => (
+              <p key={i} className="text-xs text-muted-foreground">{step}</p>
+            ))}
+          </div>
+
+          <AdobeExpressBtn format={idea.contentType ?? 'Post'} />
+        </div>
+      )}
+
+      {/* ── TAB: Subir arte ── */}
+      {arteTab === 'subir' && (
+        <div className="p-4 space-y-4">
+          <div>
+            <p className="text-[10px] text-muted-foreground mb-1.5">¿Para qué formato es este arte?</p>
+            <div className="flex gap-1.5 flex-wrap">
+              {AD_FORMAT_KEYS.map(fmt => {
+                const hasAsset = localAssets.some(a => a.format === fmt)
+                return (
+                  <button key={fmt} onClick={() => setUploadFormat(fmt)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-left relative transition-colors ${uploadFormat === fmt ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:border-foreground/40'}`}>
+                    <span className="block text-xs font-medium">{AD_FORMATS[fmt].label}</span>
+                    <span className={`block text-[9px] mt-0.5 ${uploadFormat === fmt ? 'opacity-70' : 'opacity-50'}`}>{AD_FORMATS[fmt].platforms}</span>
+                    {hasAsset && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-xl border-2 border-dashed border-border bg-muted/20 p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-foreground/40 hover:bg-muted/40 transition-colors"
+          >
+            <Upload className="h-8 w-8 text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground text-center font-medium">
+              {uploadFile ? uploadFile.name : 'Clic para seleccionar imagen o video'}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60">JPG · PNG · MP4 · MOV · Máx 50 MB</p>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*,video/mp4,video/quicktime" className="hidden"
+            onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
+
+          {uploadFile && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-muted-foreground">Vista previa</p>
+              <div className={`${AD_FORMATS[uploadFormat].aspectClass} ${AD_FORMATS[uploadFormat].previewClass} overflow-hidden rounded-lg border border-border bg-muted`}>
+                {uploadFile.type.startsWith('video/') ? (
+                  <video src={URL.createObjectURL(uploadFile)} className="h-full w-full object-cover" controls />
+                ) : (
+                  <img src={URL.createObjectURL(uploadFile)} alt="Preview" className="h-full w-full object-cover" />
+                )}
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleFileUpload} disabled={!uploadFile || uploading} size="sm" className="gap-1.5 w-full">
+            <Upload className="h-3.5 w-3.5" />
+            {uploading ? 'Subiendo...' : `Subir como ${AD_FORMATS[uploadFormat].label}`}
+          </Button>
+
+          {localAssets.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Artes guardadas — {localAssets.length} formato{localAssets.length !== 1 ? 's' : ''}
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {localAssets.map(asset => {
+                  const fmtCfg = AD_FORMATS[asset.format]
+                  return (
+                    <div key={asset.format} className="space-y-1">
+                      <p className="text-[10px] font-medium text-muted-foreground">{fmtCfg.label}</p>
+                      <div className={`${fmtCfg.aspectClass} ${fmtCfg.previewClass} w-full overflow-hidden rounded-lg border border-border bg-muted`}>
+                        {asset.model === 'upload-video'
+                          ? <video src={asset.url} className="h-full w-full object-cover" />
+                          : <img src={asset.url} alt={asset.label} className="h-full w-full object-cover" />}
+                      </div>
+                      <a href={asset.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                        <ExternalLink className="h-2.5 w-2.5" /> Descargar
+                      </a>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -855,6 +1075,76 @@ function IdeaDetail({ idea, isRefined }: { idea: PlanIdea; isRefined?: boolean }
         <div className="flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">KPI</p>
           <p className="text-sm text-foreground">{idea.kpi || '—'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PreviewCard({ item, idx }: { item: ContentPlanItem; idx: number }) {
+  const assets = item.generatedAssets ?? []
+  if (assets.length === 0) return null
+
+  const defaultFmt = (assets.find(a => a.format === 'square') ?? assets[0]).format
+  const [selectedFormat, setSelectedFormat] = useState<AdFormat>(defaultFmt)
+
+  const idea = item.rawIdeas?.ideas[0]
+  const channel = item.rawIdeas?.channel ?? item.channel ?? 'Instagram'
+  const copy = item.observations ?? ''
+  const selectedAsset = assets.find(a => a.format === selectedFormat) ?? assets[0]
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">{idx + 1}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{idea?.name ?? item.temporality}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${FUNNEL_COLORS[item.funnelStage]}`}>{FUNNEL_LABELS[item.funnelStage]}</span>
+            <span className="text-[11px] text-muted-foreground">{channel}</span>
+            {item.format && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {getFormatIcon(item.format)}{item.format}
+              </span>
+            )}
+          </div>
+        </div>
+        {item.productionApproved && (
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+            <Check className="h-3 w-3" /> Aprobado
+          </span>
+        )}
+      </div>
+
+      {assets.length > 1 && (
+        <div className="flex gap-1.5 px-4 pt-3">
+          {assets.map(a => (
+            <button key={a.format} onClick={() => setSelectedFormat(a.format)}
+              className={`rounded-lg border px-2.5 py-1 text-[10px] font-medium transition-colors ${selectedFormat === a.format ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground hover:border-foreground/40'}`}>
+              {AD_FORMATS[a.format].label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="p-4 flex flex-col md:flex-row gap-6 items-start">
+        <div className="shrink-0 flex justify-center w-full md:w-auto">
+          <SocialMockup asset={selectedAsset} channel={channel} copy={copy} />
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Copy para publicar</p>
+            <div className="rounded-lg bg-muted/40 border border-border px-3 py-3">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{copy}</p>
+              <button onClick={() => navigator.clipboard.writeText(copy).then(() => toast.success('Copy copiado'))}
+                className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                <Copy className="h-3 w-3" /> Copiar copy completo
+              </button>
+            </div>
+          </div>
+
+          <PautaCard funnelStage={item.funnelStage} channel={channel} />
         </div>
       </div>
     </div>
@@ -1933,6 +2223,26 @@ export default function PlanDetailPage({ params }: Props) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Step 6: Full preview + pauta */}
+      {hasProductionCopy && items.some(i => (i.generatedAssets ?? []).length > 0) && (
+        <div className="mt-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background shrink-0">6</div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">Previsualización para publicar</h2>
+              <p className="text-xs text-muted-foreground">Mockup en red social · Copy · Info de pauta · Fecha recomendada de publicación</p>
+            </div>
+          </div>
+
+          {items
+            .filter(i => i.status === 'approved' && (i.generatedAssets ?? []).length > 0)
+            .map((item, idx) => (
+              <PreviewCard key={item.id} item={item} idx={idx} />
+            ))
+          }
         </div>
       )}
     </div>

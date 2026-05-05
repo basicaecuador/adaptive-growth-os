@@ -236,3 +236,24 @@ export function useUpdatePlanItem(planId: string) {
     },
   })
 }
+
+export function useUploadAsset(planId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ itemId, file, targetFormat }: { itemId: string; file: File; targetFormat: AdFormat }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('targetFormat', targetFormat)
+      const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/upload-asset`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al subir archivo'))
+      const { data } = await res.json()
+      return data as { url: string; asset: GeneratedAsset }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content-plan', planId] })
+    },
+  })
+}
