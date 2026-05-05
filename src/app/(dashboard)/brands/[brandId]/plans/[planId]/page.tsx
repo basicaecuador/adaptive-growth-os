@@ -202,12 +202,19 @@ function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: nu
     ? 'vertical 9:16, sujeto en zona segura central (alejado 15% bordes superior e inferior)'
     : 'cuadrado 1:1, sujeto centrado con espacio para respirar'
 
+  const hasPerson = /person|woman|man|mujer|hombre|persona|people|gente|modelo/i.test(visualSubject)
+  const hasHandProps = /holding|sosteniendo|sujetando|hand|mano|phone|celular|tablet|calend|reloj|clock/i.test(visualSubject)
+
   const parts = [
     `${style.modifier}, colores vibrantes, enfoque nítido perfecto.`,
-    `Sujeto: ${visualSubject}.`,
-    isPhotography ? 'Mood: positivo, aspiracional, auténtico. Personas reales en situaciones cotidianas, no poses artificiales de stock.' : 'Estilo limpio y profesional, colores de marca coherentes.',
+    hasHandProps
+      ? `Sujeto: ${visualSubject.replace(/holding|sosteniendo|sujetando/gi, 'cerca de')}. Persona en pose relajada y natural con manos visibles — sin objetos en las manos.`
+      : `Sujeto: ${visualSubject}.`,
+    hasPerson && isPhotography ? 'Anatomía humana realista: proporciones correctas, exactamente cinco dedos por mano, expresión genuina. No poses artificiales de stock.' : '',
+    isPhotography && !hasPerson ? 'Mood: positivo, aspiracional, auténtico.' : '',
+    !isPhotography ? 'Estilo limpio y profesional, colores de marca coherentes.' : '',
     composition ? `Composición: ${composition}.` : '',
-    `Formato ${aspectRatio}. Sin texto superpuesto, sin logos, sin marcas de agua, sin marcos.`,
+    `Formato ${aspectRatio}. Sin texto, sin logos, sin marcas de agua, sin marcos. Espacio limpio para superponer texto.`,
   ].filter(Boolean).join('\n')
 
   return parts

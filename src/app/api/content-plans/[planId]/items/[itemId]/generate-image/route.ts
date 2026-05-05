@@ -178,12 +178,22 @@ export async function POST(
       if (!idea) return NextResponse.json({ error: 'No hay idea generada para esta pieza' }, { status: 400 })
       const visualSubject = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
       const aspectNote = targetFormat === 'story' ? 'vertical 9:16 portrait' : targetFormat === 'landscape' ? 'horizontal 16:9 landscape' : 'square 1:1'
+
+      // Detect if the subject involves a person to add anatomy guidance
+      const hasPerson = /person|woman|man|mujer|hombre|persona|people|gente|modelo|smiling|sonriendo/i.test(visualSubject)
+      // Detect props that cause finger artifacts
+      const hasHandProps = /holding|sosteniendo|sujetando|mano|hand|phone|celular|tablet|calendar|calend|reloj|clock/i.test(visualSubject)
+
       prompt = [
-        'Ultra-realistic professional commercial lifestyle photography, warm natural light, vibrant colors, sharp focus, 4K quality.',
-        `Subject: ${visualSubject}.`,
-        'Mood: positive, aspirational, authentic. Real people in real situations, not stock photo poses.',
-        `Format: ${aspectNote}. No text overlays, no logos, no watermarks.`,
-      ].join(' ')
+        'Professional commercial advertising photography, soft warm studio lighting, vibrant brand colors, tack-sharp focus, high-end production quality.',
+        // If subject has person holding props, switch to simpler pose to avoid artifacts
+        hasHandProps
+          ? `Scene: ${visualSubject.replace(/holding|sosteniendo|sujetando/gi, 'near')}. Person in a natural, relaxed open pose with hands visible at sides or lightly resting — no objects in hands.`
+          : `Subject: ${visualSubject}.`,
+        hasPerson ? 'Realistic human anatomy: natural proportions, correct number of fingers (five per hand), genuine expression, not a stock photo pose.' : '',
+        'Clean background with subtle depth. No text, no logos, no watermarks, no price tags, no signs.',
+        `${aspectNote} composition with clear space for text overlay.`,
+      ].filter(Boolean).join(' ')
     }
 
     // Generate image
