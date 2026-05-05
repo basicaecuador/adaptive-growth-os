@@ -80,13 +80,29 @@ export async function POST(
     const mm = String(plan.month).padStart(2, '0')
     const yy = plan.year
 
-    const prompt = `Estratega de contenidos para Ecuador/Latam. Framework Stop/Think/Act + Reglas de plataforma Meta.
+    const pillars = Array.isArray(brand.contentPillars) && brand.contentPillars.length
+      ? brand.contentPillars.join(' · ')
+      : null
 
-MARCA: ${brand.name} | Voz: ${brand.voice || 'N/A'} | Audiencia: ${brand.targetAudience || 'N/A'}
-PROPUESTA: ${brand.valueProposition || 'N/A'}
-MES: ${monthName} ${yy} | FECHAS CLAVE: ${ecuadorDates}
-BRIEF: ${(plan.strategicBrief ?? '').slice(0, 500)}
-CANALES ACTIVOS (SOLO estos): ${channelList}
+    const prompt = `Eres el mejor estratega creativo de contenidos para marcas en Ecuador y Latinoamérica. Dominas los frameworks Stop/Think/Act, Pitch/Play/Plan y todas las reglas de plataforma Meta. Generas ideas concretas, originales y listas para producción — nada genérico.
+
+═══ MARCA ═══
+Nombre: ${brand.name}
+Voz: ${brand.voice || 'N/A'}
+Tono: ${brand.tone || 'N/A'}
+Audiencia objetivo: ${brand.targetAudience || 'N/A'}
+Propuesta de valor: ${brand.valueProposition || 'N/A'}
+${pillars ? `Pilares de contenido: ${pillars}` : ''}
+${brand.restrictions ? `Restricciones / Lo que NO hacer: ${brand.restrictions}` : ''}
+
+═══ MES ═══
+${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
+
+═══ BRIEF ESTRATÉGICO DEL MES ═══
+${plan.strategicBrief ?? ''}
+
+═══ CANALES ACTIVOS (SOLO estos) ═══
+${channelList}
 
 PRODUCTOS:
 ${productsDetail}
@@ -154,9 +170,9 @@ JSON — solo el array sin markdown:
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 8000,
-      system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 16000,
+      system: 'Eres un generador de JSON para estrategia de contenidos. Responde ÚNICAMENTE con un array JSON válido. Sin markdown, sin bloques de código. Empieza con [ y termina con ].',
       messages: [{ role: 'user', content: prompt }],
     })
 
