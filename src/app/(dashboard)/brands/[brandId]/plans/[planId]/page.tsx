@@ -147,20 +147,30 @@ function extractVisual(development: string, slides: ReturnType<typeof parseSlide
 }
 
 function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: number): string {
-  const style = VISUAL_STYLES.find(s => s.id === styleId)!
   const format = idea.contentType ?? 'Post'
   const isCarousel = /carrusel|carousel/i.test(format)
   const isVertical = /historia|story/i.test(format)
   const development = (idea.development ?? '').trim()
   const slides = isCarousel ? parseSlides(development) : []
 
-  // Extract ONLY the visual description — never the copy text
   const rawVisual = extractVisual(development, slides, segmentIdx, isCarousel)
+  // Strip brackets and clean up design-spec language
+  const cleanedVisual = rawVisual
+    .replace(/^\[|\]$/g, '')
+    .replace(/tipografía[^,.\n]*/gi, '')
+    .replace(/fondo\s+(azul|blanco|negro|gris|color)[^,.\n]*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 
-  // If no visual field exists, derive one from the hook (strip promotional language)
-  const visualSubject = rawVisual || idea.hook || ''
+  const visualSubject = cleanedVisual || idea.hook || ''
 
-  // Composition hint based on position in carousel
+  // Auto-detect style: if visual describes illustration/icons/flat, override to illustration
+  const isIllustrationContent = /ilustración|flat|íconos|iconos|diseño gráfico|infografía/i.test(visualSubject)
+  const effectiveStyleId: VisualStyleId = isIllustrationContent ? 'ilustracion' : styleId
+  const style = VISUAL_STYLES.find(s => s.id === effectiveStyleId) ?? VISUAL_STYLES[0]
+
+  const isPhotography = /fotorealista|cinematico|minimalista/.test(effectiveStyleId)
+
   let composition = ''
   if (isCarousel) {
     const isFirst = segmentIdx === 0
@@ -176,11 +186,10 @@ function buildDallePrompt(idea: PlanIdea, styleId: VisualStyleId, segmentIdx: nu
     ? 'vertical 9:16, sujeto en zona segura central (alejado 15% bordes superior e inferior)'
     : 'cuadrado 1:1, sujeto centrado con espacio para respirar'
 
-  // Build a clean photography brief — only visual language, no copy text
   const parts = [
-    `${style.modifier}, iluminación natural cálida, colores vibrantes, enfoque nítido perfecto, fotografía 4K.`,
+    `${style.modifier}, colores vibrantes, enfoque nítido perfecto.`,
     `Sujeto: ${visualSubject}.`,
-    `Mood: positivo, aspiracional, auténtico. Personas reales en situaciones cotidianas reales, no poses artificiales de stock.`,
+    isPhotography ? 'Mood: positivo, aspiracional, auténtico. Personas reales en situaciones cotidianas, no poses artificiales de stock.' : 'Estilo limpio y profesional, colores de marca coherentes.',
     composition ? `Composición: ${composition}.` : '',
     `Formato ${aspectRatio}. Sin texto superpuesto, sin logos, sin marcas de agua, sin marcos.`,
   ].filter(Boolean).join('\n')
@@ -223,6 +232,13 @@ function CreativeTools({
   }
 
   function handlePreparePrompt() {
+    // Auto-detect style from content and update selector
+    const development = idea.development ?? ''
+    const slides = isCarousel ? parseSlides(development) : []
+    const rawVisual = extractVisual(development, slides, segmentIdx, isCarousel).replace(/^\[|\]$/g, '')
+    const isIllustrationContent = /ilustración|flat|íconos|iconos|diseño gráfico|infografía/i.test(rawVisual)
+    if (isIllustrationContent) setVisualStyle('ilustracion')
+
     const prompt = buildDallePrompt(idea, visualStyle, segmentIdx)
     setPromptText(prompt)
     setPromptReady(true)
