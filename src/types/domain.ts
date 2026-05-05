@@ -94,7 +94,7 @@ export interface PlanIdea {
   funnelObjective: string
   hook: string
   hookType: string
-  hookOptions?: string[]
+  hookOptions?: { type: string; text: string; why: string }[]
   selectedHookReason?: string
   limitingBelief?: string
   motivator?: string
