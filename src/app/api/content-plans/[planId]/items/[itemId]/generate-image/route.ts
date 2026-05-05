@@ -152,7 +152,7 @@ export async function POST(
     const { planId, itemId } = await params
     const body = await req.json().catch(() => ({}))
     const customPrompt: string | undefined = body?.prompt || undefined
-    const model: string = body?.model ?? 'flux'
+    const model: string = body?.model ?? 'gpt-image-1'
     const targetFormat: AdFormat = body?.targetFormat ?? 'square'
 
     const db = createAdminClient()

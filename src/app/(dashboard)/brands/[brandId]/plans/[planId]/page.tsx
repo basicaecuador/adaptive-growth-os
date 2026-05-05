@@ -244,7 +244,7 @@ function CreativeTools({
   const [selectedFormat, setSelectedFormat] = useState<AdFormat>(defaultFormat)
   const [generatingFormats, setGeneratingFormats] = useState<Set<AdFormat>>(new Set())
   const [visualStyle, setVisualStyle] = useState<VisualStyleId>('fotorealista')
-  const [generatorModel, setGeneratorModel] = useState<ImageModelId>('flux')
+  const [generatorModel, setGeneratorModel] = useState<ImageModelId>('gpt-image-1')
   const [segmentIdx, setSegmentIdx] = useState(0)
   const [promptText, setPromptText] = useState('')
 
