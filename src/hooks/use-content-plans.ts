@@ -178,6 +178,42 @@ export function useGenerateImage(planId: string) {
   })
 }
 
+export function useGenerateVideo(planId: string) {
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      prompt,
+      motionId,
+      referenceImageUrl,
+    }: {
+      itemId: string
+      prompt?: string
+      motionId?: string
+      referenceImageUrl?: string
+    }) => {
+      const res = await fetch(`/api/content-plans/${planId}/items/${itemId}/generate-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, motionId, referenceImageUrl }),
+      })
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al generar video'))
+      const { data } = await res.json()
+      return data as { jobId: string; prompt: string; motionId: string; motionName: string; reason: string }
+    },
+  })
+}
+
+export function useHiggsfieldStatus() {
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const res = await fetch(`/api/higgsfield/status/${jobId}`)
+      if (!res.ok) throw new Error(await parseErrorMessage(res, 'Error al consultar estado'))
+      const { data } = await res.json()
+      return data as { jobId: string; status: string; videoUrl: string | null }
+    },
+  })
+}
+
 export function useUpdatePlanItem(planId: string) {
   const qc = useQueryClient()
   return useMutation({

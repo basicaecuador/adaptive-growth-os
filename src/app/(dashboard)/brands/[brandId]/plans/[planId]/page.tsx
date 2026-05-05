@@ -15,6 +15,8 @@ import {
   useRefineIdea,
   useProducePlan,
   useGenerateImage,
+  useGenerateVideo,
+  useHiggsfieldStatus,
 } from '@/hooks/use-content-plans'
 import { toast } from 'sonner'
 import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType } from '@/types/domain'
@@ -229,6 +231,16 @@ function CreativeTools({
   const [promptReady, setPromptReady] = useState(false)
 
   const { mutateAsync: generateImage, isPending: generatingImage } = useGenerateImage(planId)
+  const { mutateAsync: generateVideo, isPending: generatingVideo } = useGenerateVideo(planId)
+  const { mutateAsync: checkStatus } = useHiggsfieldStatus()
+
+  const [videoJobId, setVideoJobId] = useState<string | null>(null)
+  const [videoStatus, setVideoStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoPrompt, setVideoPrompt] = useState('')
+  const [videoMotion, setVideoMotion] = useState<{ id: string; name: string; reason: string } | null>(null)
+  const [videoPromptReady, setVideoPromptReady] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const slides = isCarousel ? parseSlides(idea.development ?? '') : []
   const scenes = isVideo ? parseScenes(idea.development ?? '') : []
@@ -240,13 +252,11 @@ function CreativeTools({
   }
 
   function handlePreparePrompt() {
-    // Auto-detect style from content and update selector
     const development = idea.development ?? ''
     const slides = isCarousel ? parseSlides(development) : []
     const rawVisual = extractVisual(development, slides, segmentIdx, isCarousel).replace(/^\[|\]$/g, '')
     const isIllustrationContent = /ilustración|flat|íconos|iconos|diseño gráfico|infografía/i.test(rawVisual)
     if (isIllustrationContent) setVisualStyle('ilustracion')
-
     const prompt = buildDallePrompt(idea, visualStyle, segmentIdx)
     setPromptText(prompt)
     setPromptReady(true)
@@ -261,6 +271,62 @@ function CreativeTools({
     }
   }
 
+  function startPolling(jobId: string) {
+    if (pollingRef.current) clearInterval(pollingRef.current)
+    pollingRef.current = setInterval(async () => {
+      try {
+        const result = await checkStatus(jobId)
+        if (result.status === 'completed' || result.status === 'succeeded' || result.status === 'done') {
+          clearInterval(pollingRef.current!)
+          pollingRef.current = null
+          if (result.videoUrl) {
+            setVideoUrl(result.videoUrl)
+            setVideoStatus('done')
+          } else {
+            setVideoStatus('error')
+            toast.error('Video completado pero sin URL. Intenta de nuevo.')
+          }
+        } else if (result.status === 'failed' || result.status === 'error') {
+          clearInterval(pollingRef.current!)
+          pollingRef.current = null
+          setVideoStatus('error')
+          toast.error('La generación de video falló en Higgsfield.')
+        }
+      } catch {
+        // ignore transient polling errors
+      }
+    }, 6000)
+  }
+
+  async function handleRecommendAndPrepare() {
+    try {
+      const result = await generateVideo({ itemId })
+      setVideoPrompt(result.prompt)
+      setVideoMotion({ id: result.motionId, name: result.motionName, reason: result.reason })
+      setVideoJobId(result.jobId)
+      setVideoStatus('pending')
+      setVideoPromptReady(true)
+      startPolling(result.jobId)
+      toast.success(`Generando video con ${result.motionName}...`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al generar video')
+    }
+  }
+
+  async function handleRegenerateVideo() {
+    if (!videoPrompt || !videoMotion) return
+    try {
+      const result = await generateVideo({ itemId, prompt: videoPrompt, motionId: videoMotion.id })
+      setVideoJobId(result.jobId)
+      setVideoStatus('pending')
+      setVideoUrl(null)
+      startPolling(result.jobId)
+      toast.success('Regenerando video...')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al regenerar video')
+    }
+  }
+
   return (
     <div className={`rounded-xl border border-border bg-muted/30 p-4 space-y-4 ${compact ? 'text-xs' : ''}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -270,46 +336,129 @@ function CreativeTools({
         {!isGoogle && <SafeZonePreview format={idea.contentType ?? ''} />}
         <div className="flex-1 min-w-0 space-y-4">
 
-          {/* Video: Higgsfield prompt */}
+          {/* Video: Higgsfield generation */}
           {isVideo && (
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Prompt para Higgsfield IA
+                Generar video con Higgsfield IA
               </p>
+
+              {/* Scenes overview */}
               {scenes.length > 0 && (
-                <div className="flex gap-1 flex-wrap mb-2">
+                <div className="flex gap-1 flex-wrap">
                   {scenes.map((sc) => (
                     <span key={sc.label} className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {sc.label}
+                      {sc.label}: {sc.visual.slice(0, 40)}…
                     </span>
                   ))}
                 </div>
               )}
-              {idea.higgsfieldPrompt && (
-                <p className="text-xs text-foreground/80 italic leading-relaxed bg-black/[0.04] rounded-lg px-3 py-2">
-                  {idea.higgsfieldPrompt}
-                </p>
-              )}
-              <div className="flex gap-2 flex-wrap">
-                {idea.higgsfieldPrompt && (
-                  <button
-                    onClick={() => copyText(idea.higgsfieldPrompt!)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <Copy className="h-3 w-3" />
-                    {copied ? 'Copiado' : 'Copiar prompt'}
-                  </button>
-                )}
-                <a
-                  href="https://higgsfield.ai/create"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+
+              {/* Recommendation + generation */}
+              {!videoPromptReady ? (
+                <Button
+                  onClick={handleRecommendAndPrepare}
+                  disabled={generatingVideo}
+                  size="sm"
+                  className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white"
                 >
-                  Abrir Higgsfield
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {generatingVideo ? 'Claude analizando guion...' : 'Recomendar efecto y generar video'}
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  {/* Motion recommendation */}
+                  {videoMotion && (
+                    <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-500">Efecto recomendado</span>
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">{videoMotion.name}</span>
+                      </div>
+                      {videoMotion.reason && (
+                        <p className="text-xs text-violet-700 italic">{videoMotion.reason}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Editable prompt */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground">Prompt para Higgsfield — edítalo si quieres ajustar</p>
+                    <textarea
+                      value={videoPrompt}
+                      onChange={e => setVideoPrompt(e.target.value)}
+                      rows={6}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Status / video result */}
+                  {videoStatus === 'pending' && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-xs text-amber-700 animate-pulse">
+                        Higgsfield está generando el video — verificando cada 6 segundos...
+                      </p>
+                      {videoJobId && (
+                        <p className="text-[10px] text-amber-500 mt-0.5">Job ID: {videoJobId}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {videoStatus === 'done' && videoUrl && (
+                    <div className="space-y-2">
+                      <video
+                        src={videoUrl}
+                        controls
+                        autoPlay
+                        loop
+                        className="rounded-xl border border-border w-full max-w-sm shadow-sm"
+                      />
+                      <div className="flex gap-2 flex-wrap">
+                        <a
+                          href={videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Descargar video
+                        </a>
+                        <button
+                          onClick={handleRegenerateVideo}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Regenerar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {videoStatus === 'error' && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-center justify-between">
+                      <p className="text-xs text-red-600">Falló la generación. Revisa tus créditos en Higgsfield.</p>
+                      <button onClick={handleRegenerateVideo} className="text-xs text-red-600 underline">Reintentar</button>
+                    </div>
+                  )}
+
+                  {videoStatus === 'idle' && (
+                    <div className="flex gap-2 flex-wrap">
+                      <Button onClick={handleRegenerateVideo} disabled={generatingVideo} size="sm" className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Generar video
+                      </Button>
+                      <button
+                        onClick={() => { setVideoPromptReady(false); setVideoMotion(null); setVideoStatus('idle') }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        ← Volver
+                      </button>
+                      <button onClick={() => copyText(videoPrompt)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        {copied ? 'Copiado' : 'Copiar prompt'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
