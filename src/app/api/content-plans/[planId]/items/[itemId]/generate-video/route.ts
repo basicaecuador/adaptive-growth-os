@@ -7,7 +7,7 @@ import { errorResponse } from '@/lib/utils/errors'
 
 export const maxDuration = 60
 
-const HIGGSFIELD_BASE = 'https://cloud.higgsfield.ai'
+const HIGGSFIELD_BASE = 'https://api.higgsfield.ai'
 
 const CAMERA_MOTIONS = [
   { id: 'dolly_in',       name: 'Dolly In',        use: 'revelar emociones, acercamiento a producto o rostro' },

@@ -17,7 +17,7 @@ export async function GET(
     const apiKey = process.env.HIGGSFIELD_API_KEY
     if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
 
-    const res = await fetch(`https://cloud.higgsfield.ai/v1/generations/${jobId}`, {
+    const res = await fetch(`https://api.higgsfield.ai/v1/generations/${jobId}`, {
       headers: { Authorization: `Key ${apiKey}` },
     })
 
