@@ -33,15 +33,27 @@ export async function POST(
     const piecesText = approved.map((item, i) => {
       const idea = item.rawIdeas!.ideas[0]
       const isVideo = /reel|historia|video|story/i.test(idea.contentType ?? '')
+      const isCarousel = /carrusel|carousel/i.test(idea.contentType ?? '')
       const isGoogle = /google/i.test(idea.contentType ?? '')
-      return `${i + 1}. Producto:"${item.rawIdeas!.product ?? brand.name}" | Etapa:${item.funnelStage} | Formato:${idea.contentType} | Canal:${item.rawIdeas!.channel}
+      const isStatic = !isVideo && !isCarousel && !isGoogle
+
+      const guionBlock = isVideo
+        ? `\n   GUION APROBADO (úsalo como fuente narrativa para el caption y hook en pantalla):\n${idea.development}`
+        : isCarousel
+        ? `\n   ESTRUCTURA DE SLIDES APROBADA (el caption debe seguir la narrativa de estos slides):\n${idea.development}`
+        : isGoogle
+        ? `\n   ANUNCIO BASE APROBADO:\n${idea.development}`
+        : isStatic
+        ? `\n   COPY BASE APROBADO:\n${idea.development}`
+        : ''
+
+      return `${i + 1}. Producto: "${item.rawIdeas!.product ?? brand.name}" | Etapa: ${item.funnelStage} | Formato: ${idea.contentType} | Canal: ${item.rawIdeas!.channel}
    Concepto: ${idea.name}
    Hook: ${idea.hook}
    Emoción objetivo: ${item.rawIdeas!.targetEmotion}
-   CTA: ${idea.cta}
-   ${isVideo ? `Guion resumen: ${idea.development.slice(0, 200)}` : ''}
-   ${isGoogle ? `Anuncio base: ${idea.development.slice(0, 200)}` : ''}`
-    }).join('\n\n')
+   CTA aprobado: ${idea.cta}
+   KPI: ${idea.kpi}${guionBlock}`
+    }).join('\n\n---\n\n')
 
     const prompt = `Eres copywriter senior especializado en redes sociales para Ecuador y Latinoamérica.
 
@@ -51,33 +63,33 @@ Audiencia: ${brand.targetAudience || 'N/A'}
 Propuesta de valor: ${brand.valueProposition || 'N/A'}
 MES: ${monthName} ${plan.year}
 
-Para cada pieza genera el copy de producción listo para publicar:
+REGLA MAESTRA: Cada pieza tiene un guion/estructura aprobada por el cliente. El caption, hook_text y hashtags deben ser COHERENTES con ese guion. El guion es la fuente de verdad narrativa — no lo ignores, no lo contradigan, no inventes un concepto diferente.
 
-PIEZAS:
+PIEZAS APROBADAS:
 ${piecesText}
 
 INSTRUCCIÓN POR TIPO:
 
-Reel / Historia / Video → Genera:
-- caption: texto completo del post (2-3 párrafos, tono humano de la plataforma, emojis naturales sin exagerar, NO menciones "link en bio" ni clichés como "¡Síguenos!"). 280-420 caracteres sin hashtags.
-- hook_text: texto exacto para pantalla en los primeros 3 segundos (máximo 7 palabras, impactante).
-- hashtags: 10-14 hashtags mix (nicho Ecuador + categoría + general). Sin el #, como array.
+Reel / Historia / Video →
+- caption: 2-3 párrafos en tono humano de la plataforma. Debe reflejar la narrativa del guion aprobado (no es un resumen, es la versión caption que acompaña al video). Emojis naturales sin exagerar. Sin "link en bio" ni "¡Síguenos!". 280-420 caracteres sin hashtags.
+- hook_text: texto EXACTO para pantalla en los primeros 3 segundos. Máximo 7 palabras. Debe coincidir con el hook visual del guion (campo ESC1 Pantalla si existe). Impactante, sin puntuación innecesaria.
+- hashtags: 10-14 hashtags mix (nicho Ecuador + categoría + general). Sin #, como array.
 
-Post estático / Carrusel → Genera:
-- caption: texto completo (3-4 párrafos, conversacional, emojis naturales). 320-480 caracteres sin hashtags.
+Post estático / Carrusel →
+- caption: 3-4 párrafos conversacionales que reflejen la propuesta del copy base aprobado. Emojis naturales. 320-480 caracteres sin hashtags.
 - hook_text: "" (vacío)
-- hashtags: 10-14 hashtags. Sin el #, como array.
+- hashtags: 10-14 hashtags. Sin #, como array.
 
-Google Search Ad / Google Display → Genera:
-- caption: copy final de los 3 títulos y 2 descripciones (formato: "T1: [...] | T2: [...] | T3: [...] | D1: [...] | D2: [...]").
+Google Search Ad / Google Display →
+- caption: Usa el anuncio base aprobado como referencia. Devuelve el copy final: "T1: [...] | T2: [...] | T3: [...] | D1: [...] | D2: [...]". Respeta los límites de caracteres (títulos ≤30c, descripciones ≤90c).
 - hook_text: "" (vacío)
 - hashtags: [] (vacío)
 
-REGLAS:
+REGLAS ADICIONALES:
 - Voz en primera persona plural (nosotros) o segunda persona (tú/tu), según la marca
-- Sin hashtags dentro del caption, van solo al final como array
-- Cada caption debe terminar con el CTA de forma natural, no forzada
-- Adapta el español al mercado ecuatoriano/latinoamericano
+- Sin hashtags dentro del caption — van solo como array
+- El CTA aprobado debe aparecer de forma natural al final del caption
+- Español ecuatoriano/latinoamericano, no castellano peninsular
 
 Devuelve SOLO JSON array sin markdown, una entrada por pieza en el mismo orden:
 [{"index":0,"caption":"...","hook_text":"...","hashtags":["marketing","ecuador"]}]`
@@ -85,8 +97,8 @@ Devuelve SOLO JSON array sin markdown, una entrada por pieza en el mismo orden:
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      system: 'JSON generator. Respond ONLY with a valid JSON array. No markdown, no code blocks. Start with [ end with ].',
+      max_tokens: 12000,
+      system: 'Eres un generador de JSON para producción de copys. Responde ÚNICAMENTE con un array JSON válido. Sin markdown, sin bloques de código. Empieza con [ y termina con ].',
       messages: [{ role: 'user', content: prompt }],
     })
 

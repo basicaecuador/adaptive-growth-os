@@ -761,6 +761,13 @@ export default function PlanDetailPage({ params }: Props) {
       items.slice(currentIdx + 1).find(i => i.status !== 'approved' && i.rawIdeas) ??
       items.slice(0, currentIdx).find(i => i.status !== 'approved' && i.rawIdeas)
 
+    // Persist the approved idea (original or refined) as ideas[0] so all downstream
+    // steps (produce, generate-image) always read the correct guion
+    const persistedIdeaSet: typeof item.rawIdeas = {
+      ...item.rawIdeas,
+      ideas: [idea, ...item.rawIdeas.ideas.slice(1)],
+    }
+
     try {
       await updateItem({
         itemId: reviewItemId,
@@ -775,6 +782,7 @@ export default function PlanDetailPage({ params }: Props) {
           mainMessage: idea.hook,
           cta: idea.cta,
           benchmarkReference: idea.benchmarkReference,
+          rawIdeas: persistedIdeaSet,
         },
       })
 
