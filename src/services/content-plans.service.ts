@@ -148,7 +148,7 @@ export async function getPlanWithItems(
 export async function insertPlanItems(
   supabase: SupabaseClient,
   planId: string,
-  items: Omit<ContentPlanItem, 'id' | 'planId' | 'contentItemId'>[],
+  items: Omit<ContentPlanItem, 'id' | 'planId' | 'contentItemId' | 'generatedAssets' | 'productionApproved'>[],
 ): Promise<ContentPlanItem[]> {
   const rows = items.map((item, i) => ({
     plan_id: planId,
