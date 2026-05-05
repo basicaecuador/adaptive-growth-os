@@ -14,14 +14,15 @@ export async function GET(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { jobId } = await params
-    const apiKey = process.env.HIGGSFIELD_API_KEY
-    if (!apiKey) throw new Error('HIGGSFIELD_API_KEY no configurada')
+    const credentials = process.env.HIGGSFIELD_API_KEY
+    if (!credentials) throw new Error('HIGGSFIELD_API_KEY no configurada')
+    const [hfApiKey, hfSecret] = credentials.split(':', 2)
 
-    const authHeader = `Key ${apiKey}`
-
-    // Try fetching status from the jobs endpoint
     const res = await fetch(`https://platform.higgsfield.ai/v1/jobs/${jobId}`, {
-      headers: { Authorization: authHeader },
+      headers: {
+        'hf-api-key': hfApiKey,
+        'hf-secret': hfSecret,
+      },
     })
 
     if (!res.ok) {
