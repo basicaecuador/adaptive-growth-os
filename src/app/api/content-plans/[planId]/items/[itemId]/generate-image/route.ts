@@ -10,7 +10,6 @@ function buildImagePrompt(development: string, format: string, hook: string): st
   const isCarousel = /carrusel|carousel/i.test(format)
   const isVertical = /historia|story/i.test(format)
 
-  // Extract visual description only — never copy/script text
   let visualDesc = ''
 
   if (isCarousel) {
@@ -25,15 +24,15 @@ function buildImagePrompt(development: string, format: string, hook: string): st
 
   if (!visualDesc) visualDesc = hook
 
-  const aspectRatio = isVertical
-    ? 'vertical 9:16 portrait, subject centered away from top and bottom 15%'
+  const aspectNote = isVertical
+    ? 'vertical portrait 9:16, subject centered in safe zone'
     : 'square 1:1, subject centered with breathing room'
 
   return [
     'Ultra-realistic professional commercial lifestyle photography, warm natural light, vibrant colors, sharp perfect focus, 4K quality.',
     `Subject: ${visualDesc}.`,
     'Mood: positive, aspirational, authentic. Real people in real everyday situations, not artificial stock photo poses.',
-    `Format: ${aspectRatio}. No text overlays, no logos, no watermarks, no frames.`,
+    `Format: ${aspectNote}. No text overlays, no logos, no watermarks, no frames.`,
   ].join(' ')
 }
 
@@ -66,7 +65,6 @@ export async function POST(
 
     const formatFromIdea = rawIdeas?.ideas?.[0]?.contentType ?? 'Post'
     const isVertical = /historia|story/i.test(formatFromIdea)
-    const size = isVertical ? '1024x1792' : '1024x1024'
 
     let prompt: string
     if (customPrompt) {
@@ -77,29 +75,36 @@ export async function POST(
       prompt = buildImagePrompt(idea.development, idea.contentType ?? 'Post', idea.hook)
     }
 
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
+    // Flux 1.1 Pro via fal.ai — much better quality than DALL-E 3, 5-15s generation
+    const imageSize = isVertical
+      ? { width: 768, height: 1344 }  // ~9:16
+      : { width: 1024, height: 1024 } // 1:1
+
+    const falRes = await fetch('https://fal.run/fal-ai/flux-pro/v1.1', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Key ${process.env.FAL_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
         prompt,
-        n: 1,
-        size,
-        quality: 'hd',
-        style: 'natural',
+        image_size: imageSize,
+        num_inference_steps: 28,
+        num_images: 1,
+        enable_safety_checker: true,
+        safety_tolerance: '2',
+        output_format: 'jpeg',
       }),
     })
 
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}))
-      throw new Error(errBody?.error?.message ?? `Error generando imagen (HTTP ${res.status})`)
+    if (!falRes.ok) {
+      const errBody = await falRes.json().catch(() => ({}))
+      throw new Error(errBody?.detail ?? errBody?.error ?? `Error generando imagen (HTTP ${falRes.status})`)
     }
 
-    const result = await res.json()
-    const imageUrl: string = result.data[0].url
+    const result = await falRes.json()
+    const imageUrl: string = result.images?.[0]?.url
+    if (!imageUrl) throw new Error('fal.ai no devolvió imagen')
 
     return NextResponse.json({ data: { imageUrl } })
   } catch (err) {
