@@ -1,51 +1,42 @@
 import type { UserRole } from '@/types/domain'
 
 export type Permission =
-  | 'org:manage'
-  | 'org:members:manage'
-  | 'brand:create'
+  | 'members:manage'
   | 'brand:edit'
-  | 'brand:delete'
   | 'brand:setup:edit'
   | 'content:plan:create'
   | 'content:generate'
   | 'content:edit'
   | 'content:approve'
-  | 'content:publish'
-  | 'rules:manage'
+  | 'content:assets:upload'
   | 'reports:view'
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  owner: [
-    'org:manage',
-    'org:members:manage',
-    'brand:create',
-    'brand:edit',
-    'brand:delete',
-    'brand:setup:edit',
-    'content:plan:create',
-    'content:generate',
-    'content:edit',
-    'content:approve',
-    'content:publish',
-    'rules:manage',
-    'reports:view',
-  ],
   admin: [
-    'org:members:manage',
-    'brand:create',
+    'members:manage',
     'brand:edit',
     'brand:setup:edit',
     'content:plan:create',
     'content:generate',
     'content:edit',
     'content:approve',
-    'content:publish',
-    'rules:manage',
+    'content:assets:upload',
     'reports:view',
   ],
-  editor: ['content:generate', 'content:edit', 'reports:view'],
-  viewer: ['reports:view'],
+  product_owner: [
+    'brand:edit',
+    'brand:setup:edit',
+    'content:plan:create',
+    'content:generate',
+    'content:edit',
+    'content:approve',
+    'reports:view',
+  ],
+  content: [
+    'content:assets:upload',
+    'content:edit',
+    'reports:view',
+  ],
 }
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {

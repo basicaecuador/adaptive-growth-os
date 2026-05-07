@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check, Package } from 'lucide-react'
+import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check, Package, Users, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { useBrandDetail, useInvalidateBrandDetail } from '@/hooks/use-brand-setup'
+import { useBrandMembers, useAddBrandMember, useUpdateBrandMemberRole, useRemoveBrandMember } from '@/hooks/use-brand-members'
+import type { UserRole } from '@/types/domain'
+import { ROLE_LABELS } from '@/types/domain'
 import { toast } from 'sonner'
+
+const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
+  { value: 'admin', label: 'Administrador', description: 'Gestiona permisos y tiene acceso total' },
+  { value: 'product_owner', label: 'Product Owner', description: 'Crea marcas, planes y aprueba contenido' },
+  { value: 'content', label: 'Content', description: 'Genera artes y sube assets' },
+]
 
 interface Props {
   params: Promise<{ brandId: string }>
@@ -58,8 +67,45 @@ export default function BrandSetupPage({ params }: Props) {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingFont, setUploadingFont] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [memberEmail, setMemberEmail] = useState('')
+  const [memberRole, setMemberRole] = useState<UserRole>('product_owner')
   const logoInputRef = useRef<HTMLInputElement>(null)
   const fontInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: members = [] } = useBrandMembers(brandId)
+  const addMember = useAddBrandMember(brandId)
+  const updateMemberRole = useUpdateBrandMemberRole(brandId)
+  const removeMember = useRemoveBrandMember(brandId)
+
+  async function handleAddMember() {
+    const email = memberEmail.trim()
+    if (!email) return
+    try {
+      await addMember.mutateAsync({ email, role: memberRole })
+      setMemberEmail('')
+      toast.success('Miembro agregado')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al agregar miembro')
+    }
+  }
+
+  async function handleRoleChange(memberId: string, role: UserRole) {
+    try {
+      await updateMemberRole.mutateAsync({ memberId, role })
+      toast.success('Rol actualizado')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al actualizar rol')
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    try {
+      await removeMember.mutateAsync(memberId)
+      toast.success('Miembro eliminado')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar miembro')
+    }
+  }
 
   useEffect(() => {
     if (!brand) return
@@ -504,6 +550,96 @@ export default function BrandSetupPage({ params }: Props) {
               onChange={handleFontUpload}
             />
           </div>
+        </div>
+
+        {/* Miembros y roles */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-card-foreground">Miembros y roles</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Asigna acceso a esta marca por persona y rol.
+            </p>
+          </div>
+
+          {/* Role legend */}
+          <div className="grid gap-2">
+            {ROLE_OPTIONS.map(r => (
+              <div key={r.value} className="flex items-start gap-2.5">
+                <span className="mt-0.5 inline-flex h-5 min-w-[110px] items-center justify-center rounded-full bg-muted px-2.5 text-[11px] font-semibold text-foreground/70">
+                  {r.label}
+                </span>
+                <span className="text-xs text-muted-foreground leading-relaxed">{r.description}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Current members */}
+          {members.length > 0 && (
+            <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+              {members.map(m => (
+                <div key={m.id} className="flex items-center gap-3 px-4 py-3 bg-card">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{m.email}</p>
+                  </div>
+                  <select
+                    value={m.role}
+                    onChange={e => handleRoleChange(m.id, e.target.value as UserRole)}
+                    className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {ROLE_OPTIONS.map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add member form */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Email del usuario..."
+              type="email"
+              value={memberEmail}
+              onChange={e => setMemberEmail(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember() } }}
+              className="flex-1"
+            />
+            <select
+              value={memberRole}
+              onChange={e => setMemberRole(e.target.value as UserRole)}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {ROLE_OPTIONS.map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleAddMember}
+              disabled={addMember.isPending}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {members.length === 0 && (
+            <p className="text-center text-xs text-muted-foreground py-2">
+              Aún no hay miembros asignados a esta marca.
+            </p>
+          )}
         </div>
 
         <Button onClick={handleSave} disabled={isSaving} className="w-full" size="lg">

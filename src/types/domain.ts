@@ -1,6 +1,22 @@
 // Core domain types — source of truth for all business entities
 
-export type UserRole = 'owner' | 'admin' | 'editor' | 'viewer'
+export type UserRole = 'admin' | 'product_owner' | 'content'
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Administrador',
+  product_owner: 'Product Owner',
+  content: 'Content',
+}
+
+export interface BrandMember {
+  id: string
+  brandId: string
+  userId: string
+  email: string
+  role: UserRole
+  invitedBy: string | null
+  createdAt: Date
+}
 
 export interface Organization {
   id: string

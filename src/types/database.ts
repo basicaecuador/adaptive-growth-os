@@ -452,6 +452,46 @@ export interface Database {
           },
         ]
       }
+      brand_members: {
+        Row: {
+          id: string
+          brand_id: string
+          user_id: string
+          email: string
+          role: string
+          invited_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          user_id: string
+          email: string
+          role: string
+          invited_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          user_id?: string
+          email?: string
+          role?: string
+          invited_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'brand_members_brand_id_fkey'
+            columns: ['brand_id']
+            referencedRelation: 'brands'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       content_expansion_requests: {
         Row: {
           id: string
