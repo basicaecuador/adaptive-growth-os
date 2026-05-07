@@ -2,17 +2,33 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import type { Database } from '@/types/database'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const registered = searchParams.get('registered') === '1'
 
-  async function signInWithGoogle() {
-    setLoading(true)
-    const supabase = createBrowserClient<Database>(
+  const [tab, setTab] = useState<'google' | 'email'>('google')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  function getSupabase() {
+    return createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
+  }
+
+  async function signInWithGoogle() {
+    setLoading(true)
+    const supabase = getSupabase()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -20,8 +36,28 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  async function signInWithEmail(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    if (!email || !password) { setError('Completa todos los campos'); return }
+    setLoading(true)
+    try {
+      const supabase = getSupabase()
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        setError('Email o contraseña incorrectos')
+        return
+      }
+      window.location.href = '/'
+    } catch {
+      setError('Error inesperado. Intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight text-card-foreground">
@@ -31,14 +67,81 @@ export default function LoginPage() {
             Plataforma de contenido inteligente para agencias
           </p>
         </div>
-        <button
-          onClick={signInWithGoogle}
-          disabled={loading}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <GoogleIcon />
-          {loading ? 'Redirigiendo...' : 'Continuar con Google'}
-        </button>
+
+        {registered && (
+          <div className="mb-5 rounded-lg bg-green-50 border border-green-200 px-3 py-2.5 text-sm text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-400">
+            Cuenta creada. Inicia sesión para continuar.
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="mb-5 flex rounded-lg border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setTab('google')}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${tab === 'google' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Google
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('email')}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${tab === 'email' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Email
+          </button>
+        </div>
+
+        {tab === 'google' ? (
+          <button
+            onClick={signInWithGoogle}
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <GoogleIcon />
+            {loading ? 'Redirigiendo...' : 'Continuar con Google'}
+          </button>
+        ) : (
+          <form onSubmit={signInWithEmail} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Ingresando...' : 'Iniciar sesión'}
+            </Button>
+          </form>
+        )}
+
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          ¿No tienes cuenta?{' '}
+          <Link href="/register" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Crear cuenta
+          </Link>
+        </p>
       </div>
     </main>
   )
