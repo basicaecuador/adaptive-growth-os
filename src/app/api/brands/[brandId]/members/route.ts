@@ -63,8 +63,9 @@ export async function POST(
 
     const db = createAdminClient()
 
-    const { data: authData, error: authError } = await db.auth.admin.getUserByEmail(email)
-    if (authError || !authData?.user) {
+    const { data: { users }, error: authError } = await db.auth.admin.listUsers({ perPage: 1000 })
+    const foundUser = users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+    if (authError || !foundUser) {
       return NextResponse.json({ error: 'Usuario no encontrado en el sistema' }, { status: 404 })
     }
 
@@ -73,8 +74,8 @@ export async function POST(
       .upsert(
         {
           brand_id: brandId,
-          user_id: authData.user.id,
-          email: authData.user.email ?? email,
+          user_id: foundUser.id,
+          email: foundUser.email ?? email,
           role,
           invited_by: user.id,
         },
