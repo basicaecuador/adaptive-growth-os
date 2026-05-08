@@ -6,15 +6,13 @@ import { errorResponse } from '@/lib/utils/errors'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, password, orgName, orgSlug } = body as {
+    const { name, email, password } = body as {
       name: string
       email: string
       password: string
-      orgName: string
-      orgSlug: string
     }
 
-    if (!name || !email || !password || !orgName || !orgSlug) {
+    if (!name || !email || !password) {
       return NextResponse.json({ error: 'Todos los campos son requeridos' }, { status: 400 })
     }
     if (password.length < 8) {
@@ -23,18 +21,7 @@ export async function POST(req: NextRequest) {
 
     const db = createAdminClient()
 
-    // Check slug availability
-    const { data: existing } = await db
-      .from('organizations')
-      .select('id')
-      .eq('slug', orgSlug)
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json({ error: 'Ya existe una organización con ese nombre' }, { status: 409 })
-    }
-
-    // Create user via admin (skips email confirmation)
+    // Create user (skip email confirmation for controlled B2B env)
     const { data: authData, error: authError } = await db.auth.admin.createUser({
       email,
       password,
@@ -43,7 +30,11 @@ export async function POST(req: NextRequest) {
     })
 
     if (authError) {
-      if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+      if (
+        authError.message.includes('already registered') ||
+        authError.message.includes('already been registered') ||
+        authError.message.includes('already exists')
+      ) {
         return NextResponse.json({ error: 'Ya existe una cuenta con ese email' }, { status: 409 })
       }
       throw new Error(authError.message)
@@ -51,23 +42,24 @@ export async function POST(req: NextRequest) {
 
     const userId = authData.user.id
 
-    // Create organization
-    const { data: org, error: orgError } = await db
+    // Auto-join the first (main) organization with 'content' role
+    const { data: orgs } = await db
       .from('organizations')
-      .insert({ name: orgName, slug: orgSlug })
       .select('id')
-      .single()
+      .order('created_at', { ascending: true })
+      .limit(1)
 
-    if (orgError) throw new Error(orgError.message)
+    const orgId = orgs?.[0]?.id
+    if (orgId) {
+      await db
+        .from('organization_members')
+        .upsert(
+          { organization_id: orgId, user_id: userId, role: 'content' },
+          { onConflict: 'organization_id,user_id' },
+        )
+    }
 
-    // Add user as admin member
-    const { error: memberError } = await db
-      .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: 'admin' })
-
-    if (memberError) throw new Error(memberError.message)
-
-    return NextResponse.json({ data: { userId, orgId: org.id } }, { status: 201 })
+    return NextResponse.json({ data: { userId } }, { status: 201 })
   } catch (err) {
     return errorResponse(err)
   }

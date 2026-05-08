@@ -7,18 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
-function slugify(str: string) {
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
 export default function RegisterPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ name: '', email: '', password: '', orgName: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +22,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
-    if (!form.name || !form.email || !form.password || !form.orgName) {
+    if (!form.name || !form.email || !form.password) {
       setError('Todos los campos son requeridos')
       return
     }
@@ -45,13 +36,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          orgName: form.orgName,
-          orgSlug: slugify(form.orgName),
-        }),
+        body: JSON.stringify(form),
       })
 
       const body = await res.json()
@@ -76,7 +61,7 @@ export default function RegisterPage() {
             Crear cuenta
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configura tu organización y empieza a trabajar
+            Solicita acceso a la plataforma
           </p>
         </div>
 
@@ -114,21 +99,6 @@ export default function RegisterPage() {
               onChange={update('password')}
               autoComplete="new-password"
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="orgName">Nombre de la organización</Label>
-            <Input
-              id="orgName"
-              placeholder="Mi Agencia"
-              value={form.orgName}
-              onChange={update('orgName')}
-            />
-            {form.orgName && (
-              <p className="text-[11px] text-muted-foreground">
-                Slug: <span className="font-mono">{slugify(form.orgName)}</span>
-              </p>
-            )}
           </div>
 
           {error && (
