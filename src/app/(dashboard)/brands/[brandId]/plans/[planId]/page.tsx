@@ -1546,6 +1546,37 @@ export default function PlanDetailPage({ params }: Props) {
   if (items.length === 0) {
     return (
       <div className="p-8 max-w-3xl">
+        {expansionCheck && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <span className="text-lg font-bold">!</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Límite del plan mensual alcanzado</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Se requieren <strong>{expansionCheck.expected} piezas</strong>, pero el plan contratado incluye <strong>{expansionCheck.limit} piezas</strong>.
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Se necesitan <strong className="text-amber-600">{expansionCheck.expected - expansionCheck.limit} piezas adicionales</strong>. ¿Deseas solicitar esta ampliación?
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <Button onClick={handleRequestExpansion} disabled={requestingExpansion} className="w-full">
+                  {requestingExpansion ? 'Enviando solicitud...' : 'Solicitar ampliación'}
+                </Button>
+                <Button variant="outline" onClick={() => { setExpansionCheck(null); doGenerate() }} className="w-full">
+                  Generar de todas formas
+                </Button>
+                <Button variant="ghost" onClick={() => setExpansionCheck(null)} className="w-full">
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {Header}
 
         <div className="mb-6 flex items-center gap-2 text-sm">
