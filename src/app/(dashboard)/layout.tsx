@@ -35,7 +35,33 @@ async function ensureAgencyMembership(userId: string) {
       })
     }
   } catch {
-    // Non-blocking — layout renders even if this fails
+    // Non-blocking
+  }
+}
+
+async function hasAccess(userId: string): Promise<boolean> {
+  try {
+    const db = createAdminClient()
+
+    const { data: orgMember } = await db
+      .from('organization_members')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle()
+
+    if (orgMember) return true
+
+    const { data: brandMember } = await db
+      .from('brand_members')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle()
+
+    return !!brandMember
+  } catch {
+    return false
   }
 }
 
@@ -64,6 +90,11 @@ export default async function DashboardLayout({
 
   if (user.email?.endsWith(AGENCY_DOMAIN)) {
     await ensureAgencyMembership(user.id)
+  } else {
+    const allowed = await hasAccess(user.id)
+    if (!allowed) {
+      redirect('/no-access')
+    }
   }
 
   return (
