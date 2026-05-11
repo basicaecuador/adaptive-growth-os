@@ -293,18 +293,10 @@ function ProductCard({
           </div>
         )}
 
-        {/* Web URL */}
-        <Input
-          type="url"
-          placeholder="Página web del producto (opcional)"
-          value={product.websiteUrl ?? ''}
-          onChange={e => onChange({ ...product, websiteUrl: e.target.value })}
-        />
-
         {/* Audiences for this product */}
         {audienceNames.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-foreground/70">¿A qué audiencias se dirige este producto?</p>
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 space-y-2">
+            <p className="text-xs font-semibold text-foreground/70">¿A qué audiencias se dirige este producto?</p>
             <div className="flex flex-wrap gap-1.5">
               {audienceNames.map(name => {
                 const active = (product.audiences ?? []).includes(name)
@@ -324,8 +316,19 @@ function ProductCard({
                 )
               })}
             </div>
+            {(product.audiences ?? []).length === 0 && (
+              <p className="text-[10px] text-muted-foreground/70">Selecciona al menos una audiencia para personalizar las piezas</p>
+            )}
           </div>
         )}
+
+        {/* Web URL */}
+        <Input
+          type="url"
+          placeholder="Página web del producto (opcional)"
+          value={product.websiteUrl ?? ''}
+          onChange={e => onChange({ ...product, websiteUrl: e.target.value })}
+        />
 
         {/* Advanced fields toggle */}
         <button
@@ -433,6 +436,17 @@ export default function PlansPage({ params }: Props) {
   const [products, setProducts] = useState<PlanProduct[]>([emptyProduct()])
   const [audiences, setAudiences] = useState<PlanAudience[]>([emptyAudience()])
 
+  function openForm() {
+    const d = getNextMonth()
+    setMonth(d.month)
+    setYear(d.year)
+    setContext('')
+    setProducts([emptyProduct()])
+    const brandAuds = brand?.audienciasMarca ?? []
+    setAudiences(brandAuds.length > 0 ? brandAuds.map(a => ({ ...a })) : [emptyAudience()])
+    setShowForm(true)
+  }
+
   function resetForm() {
     const d = getNextMonth()
     setMonth(d.month)
@@ -444,6 +458,7 @@ export default function PlansPage({ params }: Props) {
   }
 
   const audienceNames = audiences.map(a => a.name).filter(Boolean)
+  const fromBrandAuds = (brand?.audienciasMarca?.length ?? 0) > 0
 
   async function handleCreate() {
     const validProducts = products.filter(p => p.name.trim())
@@ -527,7 +542,11 @@ export default function PlansPage({ params }: Props) {
                   <Users className="h-4 w-4 text-muted-foreground" />
                   Audiencias objetivo
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Define a quiénes va dirigido este plan — Claude los usará para personalizar cada pieza</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {fromBrandAuds
+                    ? 'Pre-cargadas desde la marca — puedes editarlas o agregar más para este plan'
+                    : 'Define a quiénes va dirigido este plan — Claude los usará para personalizar cada pieza'}
+                </p>
               </div>
               <button
                 type="button"
@@ -632,7 +651,7 @@ export default function PlansPage({ params }: Props) {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Planes de contenido</h1>
           <p className="mt-1 text-sm text-muted-foreground">{brand?.name}</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
+        <Button onClick={openForm} className="gap-2">
           <Plus className="h-4 w-4" />
           Nuevo plan
         </Button>
@@ -647,7 +666,7 @@ export default function PlansPage({ params }: Props) {
           </div>
           <p className="font-medium text-foreground">Sin planes aún</p>
           <p className="mt-1 text-sm text-muted-foreground">Crea el primer plan de contenidos para esta marca</p>
-          <Button onClick={() => setShowForm(true)} className="mt-5 gap-2">
+          <Button onClick={openForm} className="mt-5 gap-2">
             <Plus className="h-4 w-4" />
             Crear primer plan
           </Button>
