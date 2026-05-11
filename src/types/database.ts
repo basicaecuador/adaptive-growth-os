@@ -142,11 +142,14 @@ export interface Database {
           year: number
           status: string
           products: Json
+          audiences: Json | null
           context: string | null
           strategic_brief: string | null
           channel_mix: string[]
           funnel_focus: string
+          funnel_distribution: Json | null
           pieces_count: number
+          total_pieces: number | null
           created_at: string
           updated_at: string
         }
@@ -157,11 +160,14 @@ export interface Database {
           year: number
           status?: string
           products?: Json
+          audiences?: Json | null
           context?: string | null
           strategic_brief?: string | null
           channel_mix?: string[]
           funnel_focus?: string
+          funnel_distribution?: Json | null
           pieces_count?: number
+          total_pieces?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -172,11 +178,14 @@ export interface Database {
           year?: number
           status?: string
           products?: Json
+          audiences?: Json | null
           context?: string | null
           strategic_brief?: string | null
           channel_mix?: string[]
           funnel_focus?: string
+          funnel_distribution?: Json | null
           pieces_count?: number
+          total_pieces?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -267,6 +276,10 @@ export interface Database {
           selected_idea_type: string | null
           generated_assets: unknown
           production_approved: boolean
+          content_category: string | null
+          production_type: string | null
+          conversion_channel: string | null
+          target_audience: string | null
           created_at: string
           updated_at: string
         }
@@ -292,6 +305,10 @@ export interface Database {
           selected_idea_type?: string | null
           generated_assets?: unknown
           production_approved?: boolean
+          content_category?: string | null
+          production_type?: string | null
+          conversion_channel?: string | null
+          target_audience?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -317,6 +334,10 @@ export interface Database {
           selected_idea_type?: string | null
           generated_assets?: unknown
           production_approved?: boolean
+          content_category?: string | null
+          production_type?: string | null
+          conversion_channel?: string | null
+          target_audience?: string | null
           created_at?: string
           updated_at?: string
         }

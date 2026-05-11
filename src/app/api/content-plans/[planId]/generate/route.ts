@@ -8,14 +8,9 @@ import { getBrandWithSetup } from '@/services/brands.service'
 import { getAnthropicClient } from '@/lib/ai/client'
 import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
-import type { FunnelStage, PlanIdeaSet, IdeaType } from '@/types/domain'
+import type { FunnelStageV2, PlanIdeaSet, IdeaType, FunnelDistribution, ContentCategory, ProductionType, ConversionChannel } from '@/types/domain'
 
-const FUNNEL_DISTRIBUTION: Record<string, { awareness: number; consideration: number; conversion: number; remarketing: number }> = {
-  balanced:   { awareness: 2, consideration: 2, conversion: 2, remarketing: 1 },
-  awareness:  { awareness: 3, consideration: 2, conversion: 1, remarketing: 1 },
-  conversion: { awareness: 1, consideration: 2, conversion: 3, remarketing: 1 },
-  retention:  { awareness: 1, consideration: 2, conversion: 2, remarketing: 2 },
-}
+const DEFAULT_DISTRIBUTION: FunnelDistribution = { presentacion: 40, evaluacion: 35, conversion: 25 }
 
 const ECUADOR_DATES: Record<number, string[]> = {
   1: ['1 ene — Año Nuevo', '6 ene — Día de Reyes'],
@@ -41,6 +36,10 @@ type RawPiece = {
   target_emotion: string
   idea_type: string
   format: string
+  content_category: string
+  production_type: string
+  conversion_channel: string | null
+  target_audience: string | null
   name: string
   hook: string
   hook_options: Array<{ type: string; text: string; why: string }>
@@ -55,6 +54,13 @@ type RawPiece = {
   content: string
   cta: string
   kpi: string
+}
+
+function distributePieces(total: number, dist: FunnelDistribution): { presentacion: number; evaluacion: number; conversion: number } {
+  const p = Math.round(total * dist.presentacion / 100)
+  const e = Math.round(total * dist.evaluacion / 100)
+  const c = total - p - e
+  return { presentacion: p, evaluacion: e, conversion: Math.max(0, c) }
 }
 
 export async function POST(
@@ -76,17 +82,10 @@ export async function POST(
 
     const products = plan.products
     const numProducts = products.length
-    const dist = FUNNEL_DISTRIBUTION[plan.funnelFocus ?? 'balanced'] ?? FUNNEL_DISTRIBUTION.balanced
-    const piecesPerProduct = dist.awareness + dist.consideration + dist.conversion + dist.remarketing
-    const totalPieces = numProducts * piecesPerProduct
-
-    const productsDetail = products.map((p, i) => {
-      const methods = p.leadMethods?.length ? p.leadMethods : p.leadMethod ? [p.leadMethod] : []
-      const methodText = methods.length === 0 ? ''
-        : methods.length === 1 ? ` — captura de lead via: ${methods[0]}`
-        : ` — captura de lead via MÚLTIPLES MÉTODOS: ${methods.join(', ')} → generar alternate_ctas con un cierre por método`
-      return `${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${methodText}${p.websiteUrl ? ` — referencia web: ${p.websiteUrl}` : ''}`
-    }).join('\n')
+    const dist = plan.funnelDistribution ?? DEFAULT_DISTRIBUTION
+    const PIECES_PER_PRODUCT = 7
+    const counts = distributePieces(PIECES_PER_PRODUCT, dist)
+    const totalPieces = numProducts * PIECES_PER_PRODUCT
 
     const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
     const mm = String(plan.month).padStart(2, '0')
@@ -95,6 +94,34 @@ export async function POST(
     const pillars = Array.isArray(brand.contentPillars) && brand.contentPillars.length
       ? brand.contentPillars.join(' · ')
       : null
+
+    const productsDetail = products.map((p, i) => {
+      const methods = p.leadMethods?.length ? p.leadMethods : p.leadMethod ? [p.leadMethod] : []
+      const methodText = methods.length === 0 ? ''
+        : methods.length === 1 ? ` — captura de lead via: ${methods[0]}`
+        : ` — captura de lead via MÚLTIPLES MÉTODOS: ${methods.join(', ')} → generar alternate_ctas`
+      const lines = [`${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${methodText}`]
+      if (p.promotion) lines.push(`   Promoción: ${p.promotion}`)
+      if (p.currentPrice) lines.push(`   Precio: ${p.currentPrice}${p.previousPrice ? ` (antes: ${p.previousPrice})` : ''}`)
+      if (p.keyBenefits?.length) lines.push(`   Beneficios: ${p.keyBenefits.join(', ')}`)
+      if (p.differentials) lines.push(`   Diferenciadores: ${p.differentials}`)
+      if (p.communicationMandatories?.length) lines.push(`   DEBE incluir: ${p.communicationMandatories.join(' / ')}`)
+      if (p.legalRestrictions) lines.push(`   Restricción legal: ${p.legalRestrictions}`)
+      if (p.websiteUrl) lines.push(`   Web: ${p.websiteUrl}`)
+      const audNames = p.audiences?.length ? p.audiences : null
+      if (audNames?.length) lines.push(`   Audiencias objetivo: ${audNames.join(', ')}`)
+      return lines.join('\n')
+    }).join('\n\n')
+
+    const audiencesSection = plan.audiences?.length
+      ? `\n═══ AUDIENCIAS DEL PLAN ═══\n${plan.audiences.map(a => {
+          const lines = [`• ${a.name}${a.description ? ` — ${a.description}` : ''}`]
+          if (a.beliefs?.length) lines.push(`  Creencias limitantes: ${a.beliefs.join(' / ')}`)
+          if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
+          if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
+          return lines.join('\n')
+        }).join('\n')}\n`
+      : ''
 
     const prompt = `Eres el mejor estratega creativo de contenidos para marcas en Ecuador y Latinoamérica. Dominas los frameworks Stop/Think/Act, Pitch/Play/Plan y todas las reglas de plataforma Meta. Generas ideas concretas, originales y listas para producción — nada genérico.
 
@@ -106,7 +133,7 @@ Audiencia objetivo: ${brand.targetAudience || 'N/A'}
 Propuesta de valor: ${brand.valueProposition || 'N/A'}
 ${pillars ? `Pilares de contenido: ${pillars}` : ''}
 ${brand.restrictions ? `Restricciones / Lo que NO hacer: ${brand.restrictions}` : ''}
-
+${audiencesSection}
 ═══ MES ═══
 ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
 
@@ -121,98 +148,76 @@ ${productsDetail}
 
 INSTRUCCIÓN:
 Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
-Por cada producto genera exactamente ${piecesPerProduct} piezas en 4 etapas con esta distribución estratégica:
-- awareness (${dist.awareness} pieza${dist.awareness !== 1 ? 's' : ''}, Sem 1-2): captar audiencia nueva, primera impresión
-- consideration (${dist.consideration} pieza${dist.consideration !== 1 ? 's' : ''}, Sem 2-3): educar, mostrar valor, generar interés activo
-- conversion (${dist.conversion} pieza${dist.conversion !== 1 ? 's' : ''}, Sem 3-4): cerrar venta, generar lead, urgencia o prueba social
-- remarketing (${dist.remarketing} pieza${dist.remarketing !== 1 ? 's' : ''}, Sem 4): retarget a quien interactuó sin convertir
+Por cada producto genera exactamente ${PIECES_PER_PRODUCT} piezas distribuidas en 3 etapas:
+- presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva.
+- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios.
+- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera.
 
-TOTAL: ${numProducts} producto(s) × ${piecesPerProduct} = ${totalPieces} piezas
+TOTAL: ${numProducts} producto(s) × ${PIECES_PER_PRODUCT} = ${totalPieces} piezas
 
 Genera UNA idea por pieza, completamente desarrollada y lista para producción.
 FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
 
 CAPTURA DE LEADS:
-Un solo método → adapta el CTA y la mecánica de conversión al método indicado:
-- Formulario de Meta → CTA: "Completa el formulario" / "Regístrate aquí" (nativo Meta, sin salir de la app)
-- Landing page → CTA: "Visita nuestra web" / "Ver más en [dominio]" (incluye URL display)
-- WhatsApp → CTA: "Escríbenos al WhatsApp" / "Chatea con nosotros" (link wa.me)
-- Messenger → CTA: "Envíanos un mensaje" / "Habla con nosotros por Messenger"
-- DM de Instagram → CTA: "Escríbenos un DM" / "Mándanos un mensaje"
-- Llamada telefónica → CTA: "Llámanos" / "Habla con un asesor"
+Un solo método → adapta el CTA al método indicado:
+- Formulario de Meta → "Completa el formulario" (nativo Meta)
+- Landing page → "Visita nuestra web" (incluye URL display)
+- WhatsApp → "Escríbenos al WhatsApp" (link wa.me)
+- Messenger → "Envíanos un mensaje"
+- DM de Instagram → "Escríbenos un DM"
+- Llamada telefónica → "Llámanos"
 
-MÚLTIPLES MÉTODOS → la idea es la MISMA pero con cierres alternativos:
-- La idea, el hook, el desarrollo y la narrativa son idénticos para todos los cierres.
-- Genera el campo cta con el CTA del primer método.
-- Genera el campo alternate_ctas: un array con UN objeto por cada método seleccionado.
-  Formato: [{"method":"WhatsApp","cta":"Escríbenos al WhatsApp","closing":"[descripción de la última escena/slide con ese CTA específico]"}, ...]
-- Cada closing describe cómo cambia solo la escena final (visual + texto en pantalla + voz) para ese canal de captura.
-- El cliente elige cuál versión publicar según el canal activo del día.
+MÚLTIPLES MÉTODOS → misma idea con cierres alternativos:
+- Genera alternate_ctas: un objeto por método: [{"method":"WhatsApp","cta":"Escríbenos","closing":"[descripción escena final]"}, ...]
 
-REGLAS DE PLATAFORMA META (obligatorio para Reel/Historia/Carrusel/Post):
-1. FORMATO 9:16: Todo contenido social es vertical. Texto y marca en zona segura central (evitar 15% superior e inferior).
-2. HOOK EN 3s: Los primeros 3 segundos determinan si sigue o no. La marca debe aparecer antes del segundo 3. Diversifica tipos de hook: visual (movimiento/color/sorpresa), texto (pregunta/dato/promesa en pantalla), trending (formato viral reconocible).
-3. SONIDO COMO NARRATIVA: Diseña primero para sin sonido (texto en pantalla siempre). Luego enriquece con voz en off o audio que aporte significado, no solo de fondo.
-4. LENGUAJE NATIVO: Habla como humano de la plataforma, no como anuncio de televisión. Tono conversacional, directo, sin locuciones comerciales genéricas.
-5. SHAREABILITY: Cada pieza necesita un motivo de compartir — dato sorprendente, insight útil, humor, identificación, ahorro de tiempo, o revelación inesperada.
-6. PITCH/PLAY/PLAN: Pitch=<10s micro-mensaje de urgencia | Play=carrusel interactivo para explorar | Plan=Reel >30s estilo creator con narración/tutorial/transformación.
-7. CTA VISIBLE EN PANTALLA: El CTA debe aparecer escrito dentro del creativo (texto en pantalla o slide final), no solo en el caption o botón de interfaz.
+REGLAS DE PLATAFORMA META:
+1. FORMATO 9:16: Todo social es vertical. Texto en zona segura central (evitar 15% superior e inferior).
+2. HOOK EN 3s: La marca aparece antes del segundo 3. Diversifica: visual (movimiento/sorpresa), texto (pregunta/dato), trending (formato viral).
+3. SONIDO COMO NARRATIVA: Primero sin sonido (texto en pantalla). Luego voz o audio que aporte significado.
+4. LENGUAJE NATIVO: Conversacional, directo, no locución televisiva.
+5. SHAREABILITY: Dato sorprendente, insight útil, humor, identificación o revelación inesperada.
+6. CTA VISIBLE EN PANTALLA: El CTA aparece escrito dentro del creativo.
 
 MAPA EMOCIONAL POR ETAPA:
-- awareness → target_emotion: Curiosidad | Sorpresa | Asombro
-- consideration → target_emotion: Confianza | Aspiración | Identificación
+- presentacion → target_emotion: Curiosidad | Sorpresa | Intriga
+- evaluacion → target_emotion: Confianza | Aspiración | Identificación
 - conversion → target_emotion: Urgencia | Validación social | FOMO
-- remarketing → target_emotion: Reactivación | Oportunidad perdida | Nostalgia
 
-PSICOLOGÍA POR PIEZA (Fases 2 y 3):
-Para cada pieza define:
-- limiting_belief: la creencia limitante ESPECÍFICA que la audiencia tiene sobre este producto/resultado. No genérico. Ej: "Es muy caro para lo que hace", "No creo que me funcione a mí", "Siempre pasa algo y pierdo el dinero". Debe ser la voz interna real del cliente.
-- motivator: el deseo o dolor CONCRETO que activa la atención. No aspiracional genérico. Ej: "Verse profesional frente a sus clientes sin gastar una fortuna", "Llegar a fin de mes sin deudas", "Que su pareja vea que sí puede lograrlo". Específico y real.
+PSICOLOGÍA POR PIEZA:
+- limiting_belief: la creencia limitante ESPECÍFICA en voz del cliente. Ej: "Es muy caro para lo que hace". Real, no genérica.
+- motivator: el deseo o dolor CONCRETO. Ej: "Verse profesional frente a clientes sin gastar una fortuna". Específico.
 
-REFERENTE CREATIVO POR PIEZA (Fase 4):
-- creative_reference: el enfoque creativo que define el tono y estructura visual de esta pieza. Elige uno: "UGC storytelling natural" | "Meta Creative directo" | "Big Idea aspiracional" | "Social proof con urgencia" | "Tutorial disruptivo" | "Mito vs Realidad" | "Transformación antes/después" | "Tensión humana emocional" | "Simplicidad + emoción Apple-style"
+REFERENTE CREATIVO: creative_reference — elige uno: "UGC storytelling natural" | "Meta Creative directo" | "Big Idea aspiracional" | "Social proof con urgencia" | "Tutorial disruptivo" | "Mito vs Realidad" | "Transformación antes/después" | "Tensión humana emocional" | "Simplicidad + emoción Apple-style"
 
-RECURSO NATIVO DE PLATAFORMA (Fase 5):
-- native_resource: el recurso nativo específico de la plataforma para esta pieza. Ej: "POV", "Talking head creator", "Split screen", "Before/After", "Lista rápida 3 puntos", "Storytime conversacional", "UGC testimonial", "Tutorial paso a paso", "Q&A", "Mito vs Realidad", "" (para formatos no video).
+RECURSO NATIVO: native_resource — ej: "POV", "Talking head creator", "Split screen", "Before/After", "Lista rápida", "Storytime", "UGC testimonial", "Tutorial paso a paso", "" (para no-video).
 
-MÚLTIPLES HOOKS + SELECCIÓN (Fases 7 y 8):
-Para cada pieza genera 3 opciones de hook y selecciona la más fuerte:
-- hook_options: array con exactamente 3 opciones:
-  * type:"visual" → los primeros 3 segundos en movimiento/imagen (para video) o elemento visual dominante (estáticos)
-  * type:"texto" → frase de pantalla impactante, máximo 7 palabras
-  * type:"trending" → formato viral reconocible de la plataforma en este momento
-  Cada una con: {type, text, why} donde why explica en 1 oración su potencial de thumb-stopping.
-- selected_hook_type: cuál de los 3 detiene más el scroll ("visual" | "texto" | "trending")
-- selected_hook_reason: en 1 oración por qué ese hook es el más fuerte de los tres
-- hook: repite el texto exacto del hook seleccionado (para compatibilidad)
+MÚLTIPLES HOOKS (para cada pieza):
+- hook_options: exactamente 3 opciones [{type:"visual",text:"...",why:"..."},{type:"texto",text:"...",why:"..."},{type:"trending",text:"...",why:"..."}]
+- selected_hook_type: "visual" | "texto" | "trending"
+- selected_hook_reason: 1 oración por qué es el más fuerte
+- hook: texto exacto del hook seleccionado (máx 10 palabras)
 
-CONTENIDO REQUERIDO POR FORMATO:
+CLASIFICACIÓN POR PIEZA:
+- content_category: "social" (Instagram/Facebook/TikTok) | "sem" (Google Search) | "display" (Google Display/banners) | "blog" (artículo SEO)
+- production_type: "stock" | "produccion_propia" | "diseno_grafico" | "imagen_referencial" | "video_grabado" | "animacion"
+- conversion_channel: solo para etapa "conversion" → "whatsapp" | "landing_page" | "sitio_web" | "formulario_meta" | "app" | null
+- target_audience: nombre de la audiencia objetivo de esta pieza (de las audiencias del plan) | null
 
-Reel/Historia → Define momento Pitch/Play/Plan. Hook type explícito. Audio como elemento narrativo. Texto en pantalla en CADA escena. CTA visible en última escena.
-content="HOOK TYPE: [visual|texto|trending]\nAUDIO: [descripción música o voz en off]\nESC1 (Xs): Visual:[...] | Voz:[texto hablado] | Pantalla:[texto en pantalla obligatorio]\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[CTA visible en pantalla]\nDURACIÓN: Xs | MOMENTO: [Pitch|Plan]\nSHAREABILITY: [motivo concreto por el que se comparte]"
-
-Carrusel → Momento Play. S1 = hook visual con texto de alto impacto. Última slide = CTA visible en imagen.
-content="S1 HOOK: [texto titular de alto impacto] | Visual:[...]\nS2: [texto] | Visual:[...]\nS3: [texto] | Visual:[...]\nS4: [texto] | Visual:[...]\nS5 CTA: [texto CTA visible en la imagen] | Visual:[...]\nSHAREABILITY: [motivo concreto]"
-
-Post estático → Zona segura. Texto principal legible en imagen. CTA escrito dentro del gráfico.
-content="TITULAR: [...]\nCUERPO: [caption completo, 2-3 oraciones con tono conversacional de marca]\nVISUAL: [descripción de imagen, elementos en zona segura central]\nCTA EN IMAGEN: [texto visible dentro del gráfico]"
-
-Google Search Ad → content="T1: [...](≤30c)\nT2: [...](≤30c)\nT3: [...](≤30c)\nD1: [...](≤90c)\nD2: [...](≤90c)\nURL: [dominio/ruta]"
-
-Google Display → content="TITULAR: [...]\nCUERPO: [texto breve]\nCTA: [texto botón]\nVISUAL: [descripción banner]"
+CONTENIDO POR FORMATO:
+Reel/Historia → content="HOOK TYPE: [visual|texto|trending]\\nAUDIO: [música o voz]\\nESC1 (Xs): Visual:[...] | Voz:[...] | Pantalla:[texto obligatorio]\\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[CTA visible]\\nDURACIÓN: Xs | MOMENTO: [Pitch|Plan]\\nSHAREABILITY: [motivo concreto]"
+Carrusel → content="S1 HOOK: [titular alto impacto] | Visual:[...]\\nS2: [texto] | Visual:[...]\\nS3: [texto] | Visual:[...]\\nS4: [texto] | Visual:[...]\\nS5 CTA: [CTA visible en imagen] | Visual:[...]\\nSHAREABILITY: [motivo]"
+Post estático → content="TITULAR: [...]\\nCUERPO: [caption 2-3 oraciones]\\nVISUAL: [descripción imagen en zona segura]\\nCTA EN IMAGEN: [texto dentro del gráfico]"
+Google Search Ad → content="T1: [...](≤30c)\\nT2: [...](≤30c)\\nT3: [...](≤30c)\\nD1: [...](≤90c)\\nD2: [...](≤90c)\\nURL: [dominio/ruta]"
+Google Display → content="TITULAR: [...]\\nCUERPO: [texto breve]\\nCTA: [texto botón]\\nVISUAL: [descripción banner]"
 
 REGLAS JSON:
-- channel: SOLO canales de la lista activa
-- higgsfield_prompt: SOLO para Reel/Historia — describe movimiento de cámara + atmósfera visual + dirección de luz ("" para el resto)
-- hook (10 palabras máx): el texto exacto del hook seleccionado
-- idea_type: awareness→disruptiva | consideration→aspiracional | conversion/remarketing→racional
+- idea_type: presentacion→disruptiva | evaluacion→aspiracional | conversion→racional
 - name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
-- limiting_belief y motivator: específicos y reales, en voz del cliente, no genéricos
-- hook_options: exactamente 3 opciones (visual, texto, trending)
-- native_resource: "" para formatos no video
+- higgsfield_prompt: SOLO Reel/Historia — movimiento cámara + atmósfera + luz ("" para el resto)
+- channel: SOLO de la lista activa
 
 JSON — solo el array sin markdown:
-[{"product":"nombre exacto producto","funnel_stage":"awareness","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","name":"Tres palabras concepto","limiting_belief":"Eso es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto inesperado","why":"El movimiento inesperado fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO inmediato"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement en Reels ahora"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto exclusivo genera más clicks que el visual en etapa awareness","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","content":"HOOK TYPE: texto\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano manos sosteniendo producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo en acción ángulo cenital] | Voz:[Con X logras Y en solo Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado final + logo marca en zona segura] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que la audiencia querrá reenviar a un amigo","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
+[{"product":"nombre producto","funnel_stage":"presentacion","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","content_category":"social","production_type":"video_grabado","conversion_channel":null,"target_audience":null,"name":"Tres palabras concepto","limiting_belief":"Es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto inesperado","why":"El movimiento fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto genera más clicks en presentación","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","alternate_ctas":[],"content":"HOOK TYPE: texto\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo en acción] | Voz:[Con X logras Y en Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado + logo] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que querrán reenviar","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
@@ -224,7 +229,7 @@ JSON — solo el array sin markdown:
 
     const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
     if (message.stop_reason === 'max_tokens') {
-      throw new Error(`La respuesta fue demasiado larga y se cortó. Intenta con menos productos (máximo 2) o un enfoque de funnel más simple.`)
+      throw new Error(`La respuesta fue demasiado larga y se cortó. Intenta con menos productos (máximo 2).`)
     }
     const stripped = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
     const jsonMatch = stripped.match(/\[[\s\S]*\]/)
@@ -238,7 +243,7 @@ JSON — solo el array sin markdown:
       const ideaSet: PlanIdeaSet = {
         temporality: raw.temporality,
         scheduledDate: raw.scheduled_date,
-        funnelStage: raw.funnel_stage as FunnelStage,
+        funnelStage: raw.funnel_stage as FunnelStageV2,
         channel: raw.channel,
         targetEmotion: raw.target_emotion,
         product: raw.product,
@@ -268,7 +273,7 @@ JSON — solo el array sin markdown:
       return {
         temporality: raw.temporality,
         scheduledDate: raw.scheduled_date,
-        funnelStage: raw.funnel_stage as FunnelStage,
+        funnelStage: raw.funnel_stage as FunnelStageV2,
         objective: raw.funnel_stage,
         idea: null,
         format: null,
@@ -282,6 +287,10 @@ JSON — solo el array sin markdown:
         sortOrder: i,
         rawIdeas: ideaSet,
         selectedIdeaType: null,
+        contentCategory: (raw.content_category || null) as ContentCategory | null,
+        productionType: (raw.production_type || null) as ProductionType | null,
+        conversionChannel: (raw.conversion_channel || null) as ConversionChannel | null,
+        targetAudience: raw.target_audience || null,
       }
     }))
 

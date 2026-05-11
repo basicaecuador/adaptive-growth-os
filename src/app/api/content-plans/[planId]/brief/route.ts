@@ -6,6 +6,7 @@ import { getBrandWithSetup } from '@/services/brands.service'
 import { getAnthropicClient } from '@/lib/ai/client'
 import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
+import type { FunnelDistribution } from '@/types/domain'
 
 export const maxDuration = 300
 
@@ -24,12 +25,7 @@ const ECUADOR_DATES: Record<number, string[]> = {
   12: ['6 dic — Fundación de Quito', '24-25 dic — Navidad', '31 dic — Fin de año'],
 }
 
-const FUNNEL_FOCUS_LABELS: Record<string, string> = {
-  balanced: 'Equilibrado — distribución balanceada entre todas las etapas del funnel',
-  awareness: 'Priorizar awareness — más piezas de captación y alcance',
-  conversion: 'Priorizar conversión — enfoque en ventas y leads directos',
-  retention: 'Priorizar retención — fidelización de clientes actuales',
-}
+const DEFAULT_DISTRIBUTION: FunnelDistribution = { presentacion: 40, evaluacion: 35, conversion: 25 }
 
 export async function POST(
   req: NextRequest,
@@ -42,7 +38,7 @@ export async function POST(
     const { planId } = await params
     const body = await req.json()
     const channelMix: string[] = body.channelMix ?? []
-    const funnelFocus: string = body.funnelFocus ?? 'balanced'
+    const funnelDistribution: FunnelDistribution = body.funnelDistribution ?? DEFAULT_DISTRIBUTION
     const piecesCount: number = body.piecesCount ?? 12
 
     const db = createAdminClient()
@@ -53,9 +49,36 @@ export async function POST(
     const monthName = monthNames[plan.month - 1]
     const ecuadorDates = ECUADOR_DATES[plan.month]?.join('\n') ?? ''
 
-    const productsText = plan.products.map(p =>
-      `- ${p.name}${p.description ? ` — ${p.description}` : ''} (Objetivo: ${p.objective})`
-    ).join('\n')
+    const dist = funnelDistribution
+    const pPct = dist.presentacion
+    const ePct = dist.evaluacion
+    const cPct = dist.conversion
+
+    const pPieces = Math.round(piecesCount * pPct / 100)
+    const ePieces = Math.round(piecesCount * ePct / 100)
+    const cPieces = piecesCount - pPieces - ePieces
+
+    const productsText = plan.products.map((p, idx) => {
+      const lines = [`${idx + 1}. **${p.name}** — ${p.description}`]
+      if (p.objective) lines.push(`   Objetivo: ${p.objective}`)
+      if (p.promotion) lines.push(`   Promoción vigente: ${p.promotion}`)
+      if (p.currentPrice) lines.push(`   Precio: ${p.currentPrice}${p.previousPrice ? ` (antes ${p.previousPrice})` : ''}`)
+      if (p.keyBenefits?.length) lines.push(`   Beneficios clave: ${p.keyBenefits.join(', ')}`)
+      if (p.differentials) lines.push(`   Diferenciadores: ${p.differentials}`)
+      if (p.legalRestrictions) lines.push(`   Restricciones legales: ${p.legalRestrictions}`)
+      return lines.join('\n')
+    }).join('\n\n')
+
+    const audiencesText = plan.audiences?.length
+      ? plan.audiences.map((a, idx) => {
+          const lines = [`${idx + 1}. **${a.name}**`]
+          if (a.description) lines.push(`   ${a.description}`)
+          if (a.beliefs?.length) lines.push(`   Creencias: ${a.beliefs.join(' · ')}`)
+          if (a.pains?.length) lines.push(`   Dolores: ${a.pains.join(' · ')}`)
+          if (a.jtbd?.length) lines.push(`   Quieren lograr: ${a.jtbd.join(' · ')}`)
+          return lines.join('\n')
+        }).join('\n\n')
+      : null
 
     const prompt = `Eres un estratega de contenidos senior especializado en marketing digital para Ecuador y Latinoamérica.
 
@@ -63,7 +86,7 @@ export async function POST(
 - Nombre: ${brand.name}
 - Voz: ${brand.voice || 'No definida'}
 - Tono: ${brand.tone || 'No definido'}
-- Audiencia: ${brand.targetAudience || 'No definida'}
+- Audiencia base: ${brand.targetAudience || 'No definida'}
 - Propuesta de valor: ${brand.valueProposition || 'No definida'}
 - Pilares de contenido: ${brand.contentPillars?.join(', ') || 'No definidos'}
 - Restricciones: ${brand.restrictions?.join(', ') || 'Ninguna'}
@@ -72,74 +95,71 @@ export async function POST(
 ${plan.context ? `Contexto de negocio: ${plan.context}\n` : ''}
 Productos/servicios a promover:
 ${productsText}
-
+${audiencesText ? `\n## AUDIENCIAS OBJETIVO\n${audiencesText}\n` : ''}
 ## PARÁMETROS ESTRATÉGICOS
 - Canales seleccionados: ${channelMix.join(', ') || 'No especificados'}
-- Enfoque del funnel: ${FUNNEL_FOCUS_LABELS[funnelFocus] || funnelFocus}
+- Distribución del funnel: Presentación ${pPct}% (${pPieces} piezas) · Evaluación ${ePct}% (${ePieces} piezas) · Conversión ${cPct}% (${cPieces} piezas)
 - Volumen objetivo: ${piecesCount} piezas de contenido
 
 ## FECHAS RELEVANTES EN ECUADOR — ${monthName}
 ${ecuadorDates}
 
 ## TU TAREA
-Genera un brief estratégico para este mes. El brief debe ser conciso, orientado a acción, y justificar las decisiones de distribución. Usa este formato exacto:
+Genera un brief estratégico para este mes. El brief debe ser conciso, orientado a acción y justificar las decisiones de distribución. Usa este formato exacto:
 
 ### Análisis del mes
 [2-3 oraciones: qué hace especial a este mes para esta marca en Ecuador. Contexto cultural, competitivo o de negocio relevante.]
 
 ### Distribución del funnel
-Distribuye las ${piecesCount} piezas entre las 4 etapas. Justifica brevemente cada número.
-- Awareness: X piezas — [razón]
-- Consideración: X piezas — [razón]
-- Conversión: X piezas — [razón]
-- Remarketing: X piezas — [razón]
+Justifica la distribución de ${piecesCount} piezas en las 3 etapas del customer journey:
+- Presentación: ${pPieces} piezas — [razón: a quién presentamos el producto y por qué esta proporción]
+- Evaluación: ${ePieces} piezas — [razón: qué argumentos construimos para el prospecto en evaluación]
+- Conversión: ${cPieces} piezas — [razón: por qué este volumen de conversión tiene sentido para este mes]
 
 ### Ejes temáticos
-Los 4 grandes temas que deben dominar el mes. Cada eje debe conectar la marca con algo relevante para la audiencia.
+Los 3-4 grandes temas que deben dominar el mes. Cada eje conecta la marca con algo relevante para la audiencia.
 1. **[Nombre del eje]** — [descripción de 1 línea]
 2. **[Nombre del eje]** — [descripción de 1 línea]
 3. **[Nombre del eje]** — [descripción de 1 línea]
 4. **[Nombre del eje]** — [descripción de 1 línea]
 
 ### Momentos clave a aprovechar
-[2-4 fechas o momentos específicos del mes con una idea de acción concreta para cada uno. Solo los que realmente aplican a esta marca.]
+[2-4 fechas o momentos específicos del mes con una idea de acción concreta. Solo los que realmente aplican a esta marca.]
 
 ### Mix por canal
-${channelMix.map(ch => `- **${ch}**: [número] piezas — [tipos de contenido recomendados]`).join('\n')}
+${channelMix.map(ch => `- **${ch}**: [número] piezas — [tipos de contenido recomendados y etapa principal]`).join('\n')}
 
-### Psicología del cliente objetivo
+### Psicología de la audiencia objetivo
 La materia prima emocional del mes — lo que la audiencia cree, teme y desea en relación a esta marca y sus productos.
 
-**Creencias limitantes a romper o capitalizar:**
-- [Creencia limitante 1 — específica, no genérica. Ej: "Es muy caro para lo que ofrece" / "Ya probé algo similar y no funcionó"]
-- [Creencia limitante 2]
+**Creencias limitantes a romper:**
+- [Creencia 1 — específica y en voz del cliente. Ej: "Es muy caro para lo que ofrece"]
+- [Creencia 2]
 
 **Miedos no verbalizados:**
-- [Miedo 1 — interno, no racional. Ej: "Que me juzguen por gastar en esto" / "Que no funcione y quede mal frente a mi familia"]
+- [Miedo 1 — interno. Ej: "Que no me funcione a mí como a otros"]
 - [Miedo 2]
 
 **Motivadores y deseos concretos:**
-- [Motivador 1 — específico. Ej: "Verse profesional frente a clientes" / "Ahorrar para el viaje que llevan 2 años planeando"]
+- [Motivador 1 — específico. Ej: "Verse profesional frente a clientes sin gastar una fortuna"]
 - [Motivador 2]
 
-**Punto de quiebre / epifanía del mes:**
+**Insight del mes:**
 [El momento exacto en que la audiencia dice "esto es justo lo que necesito". El insight que debe atravesar todo el contenido del mes.]
 
-### Referentes creativos del mes
-Enfoques creativos a priorizar por etapa del funnel para esta marca y audiencia específica:
-- **Awareness:** [Enfoque creativo] — [Por qué conecta con esta audiencia en este momento]
-- **Consideración:** [Enfoque creativo] — [Razón]
-- **Conversión:** [Enfoque creativo] — [Razón]
-- **Remarketing:** [Enfoque creativo] — [Razón]
+### Referentes creativos por etapa
+- **Presentación:** [Enfoque creativo] — [por qué conecta con esta audiencia ahora]
+- **Evaluación:** [Enfoque creativo] — [razón]
+- **Conversión:** [Enfoque creativo] — [razón]
 
-Opciones de referentes: UGC storytelling natural | Meta Creative directo | Big Idea aspiracional | Social proof con urgencia | Tutorial disruptivo | Mito vs Realidad | Transformación antes/después | Wieden+Kennedy emocional | Droga5 tensión humana | Apple simplicidad + emoción
+Opciones de referentes: UGC storytelling natural | Meta Creative directo | Big Idea aspiracional | Social proof con urgencia | Tutorial disruptivo | Mito vs Realidad | Transformación antes/después | Tensión humana emocional | Apple simplicidad + emoción
 
 Responde solo con el brief, sin texto adicional antes ni después.`
 
     const anthropic = getAnthropicClient()
     const message = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      max_tokens: 1800,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -149,7 +169,7 @@ Responde solo con el brief, sin texto adicional antes ni después.`
     const updatedPlan = await updatePlan(db, planId, {
       strategicBrief: brief,
       channelMix,
-      funnelFocus,
+      funnelDistribution,
       piecesCount,
     })
 

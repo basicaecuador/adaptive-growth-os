@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdea, PlanIdeaSet, IdeaType, GeneratedAsset, AdFormat, ContentExpansionRequest } from '@/types/domain'
+import type { ContentPlan, ContentPlanItem, PlanProduct, PlanAudience, FunnelDistribution, PlanIdea, PlanIdeaSet, IdeaType, GeneratedAsset, AdFormat, ContentExpansionRequest } from '@/types/domain'
 
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -51,6 +51,7 @@ export function useCreateContentPlan(brandId: string) {
       month: number
       year: number
       products: PlanProduct[]
+      audiences?: PlanAudience[]
       context?: string
     }) => {
       const res = await fetch('/api/content-plans', {
@@ -71,7 +72,7 @@ export function useCreateContentPlan(brandId: string) {
 export function useGenerateBrief(planId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { channelMix: string[]; funnelFocus: string; piecesCount: number }) => {
+    mutationFn: async (input: { channelMix: string[]; funnelDistribution: FunnelDistribution; piecesCount: number }) => {
       const res = await fetch(`/api/content-plans/${planId}/brief`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

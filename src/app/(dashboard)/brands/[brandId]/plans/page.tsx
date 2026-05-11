@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X, Globe, MessageCircle, Phone, FileText, Send, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X, Globe, MessageCircle, Phone, FileText, Send, MessageSquare, ChevronDown, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { useContentPlans, useCreateContentPlan } from '@/hooks/use-content-plans'
 import { useBrandDetail } from '@/hooks/use-brand-setup'
 import { toast } from 'sonner'
-import type { PlanProduct } from '@/types/domain'
+import type { PlanProduct, PlanAudience } from '@/types/domain'
 import { useRouter } from 'next/navigation'
 
 interface Props {
@@ -57,7 +57,7 @@ function LeadMethodSelector({ value, onChange }: { value: string[]; onChange: (v
       </div>
       {value.length > 1 && (
         <p className="text-[10px] text-violet-600 dark:text-violet-400 leading-snug">
-          Con múltiples métodos se generará una misma idea con {value.length} cierres alternativos, uno por canal.
+          Con múltiples métodos se genera la misma idea con {value.length} cierres alternativos.
         </p>
       )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -76,9 +76,7 @@ function LeadMethodSelector({ value, onChange }: { value: string[]; onChange: (v
             >
               <Icon className={`h-4 w-4 ${active ? 'text-foreground' : 'text-muted-foreground'}`} />
               <div>
-                <p className={`text-[11px] font-semibold leading-none ${active ? 'text-foreground' : 'text-foreground/80'}`}>
-                  {id}
-                </p>
+                <p className={`text-[11px] font-semibold leading-none ${active ? 'text-foreground' : 'text-foreground/80'}`}>{id}</p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground leading-tight">{description}</p>
               </div>
             </button>
@@ -87,6 +85,337 @@ function LeadMethodSelector({ value, onChange }: { value: string[]; onChange: (v
       </div>
     </div>
   )
+}
+
+function TagInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const [draft, setDraft] = useState('')
+  function add() {
+    const trimmed = draft.trim()
+    if (trimmed && !value.includes(trimmed)) onChange([...value, trimmed])
+    setDraft('')
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        <Input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder}
+          className="h-8 text-xs"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 h-8 px-2.5">
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {value.map((v, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
+              {v}
+              <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-foreground">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AudienceCard({
+  audience,
+  index,
+  total,
+  onChange,
+  onRemove,
+}: {
+  audience: PlanAudience
+  index: number
+  total: number
+  onChange: (a: PlanAudience) => void
+  onRemove: () => void
+}) {
+  const [expanded, setExpanded] = useState(true)
+  return (
+    <div className="rounded-lg border border-border bg-background">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="flex items-center gap-2 text-left flex-1"
+        >
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            {total > 1 ? `Audiencia ${index + 1}` : 'Audiencia objetivo'}
+          </span>
+          {audience.name && (
+            <span className="text-xs text-foreground font-medium truncate">{audience.name}</span>
+          )}
+          <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`} />
+        </button>
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="ml-2 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      {expanded && (
+        <div className="p-4 space-y-3">
+          <Input
+            placeholder="Nombre de la audiencia (ej: Emprendedores 30-45 años)"
+            value={audience.name}
+            onChange={e => onChange({ ...audience, name: e.target.value })}
+          />
+          <Textarea
+            placeholder="Descripción: quiénes son, qué los caracteriza (opcional)"
+            value={audience.description ?? ''}
+            onChange={e => onChange({ ...audience, description: e.target.value })}
+            rows={2}
+          />
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Creencias limitantes</p>
+            <TagInput
+              value={audience.beliefs ?? []}
+              onChange={v => onChange({ ...audience, beliefs: v })}
+              placeholder="Ej: Es muy caro para lo que ofrece"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dolores / frustraciones</p>
+            <TagInput
+              value={audience.pains ?? []}
+              onChange={v => onChange({ ...audience, pains: v })}
+              placeholder="Ej: Pierde clientes por falta de presencia online"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Jobs To Be Done (qué quieren lograr)</p>
+            <TagInput
+              value={audience.jtbd ?? []}
+              onChange={v => onChange({ ...audience, jtbd: v })}
+              placeholder="Ej: Atraer clientes sin depender de referidos"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProductCard({
+  product,
+  index,
+  total,
+  onChange,
+  onRemove,
+  audienceNames,
+}: {
+  product: PlanProduct
+  index: number
+  total: number
+  onChange: (p: PlanProduct) => void
+  onRemove: () => void
+  audienceNames: string[]
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  function updateLeadMethods(methods: string[]) {
+    onChange({ ...product, leadMethods: methods })
+  }
+
+  function toggleAudience(name: string) {
+    const cur = product.audiences ?? []
+    onChange({ ...product, audiences: cur.includes(name) ? cur.filter(a => a !== name) : [...cur, name] })
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-background">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          {total > 1 ? `Producto ${index + 1}` : 'Producto / Servicio'}
+        </span>
+        {total > 1 && (
+          <button type="button" onClick={onRemove} className="rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div className="p-4 space-y-3">
+        <Input
+          placeholder="Nombre del producto o servicio"
+          value={product.name}
+          onChange={e => onChange({ ...product, name: e.target.value })}
+        />
+        <Textarea
+          placeholder="Descripción: qué es, qué lo hace diferente, características principales..."
+          value={product.description}
+          onChange={e => onChange({ ...product, description: e.target.value })}
+          rows={2}
+        />
+
+        {/* Objetivo */}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-foreground/70">Objetivo principal</p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
+            {OBJECTIVE_OPTIONS.map(o => {
+              const active = product.objective === o
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => onChange({ ...product, objective: o, leadMethods: o !== 'Generar leads' ? [] : product.leadMethods })}
+                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium text-left transition-all leading-snug ${
+                    active
+                      ? 'border-foreground bg-foreground/5 text-foreground ring-1 ring-foreground/20'
+                      : 'border-border bg-background text-foreground/70 hover:border-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  {o}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Lead methods */}
+        {product.objective === 'Generar leads' && (
+          <div className="rounded-lg border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 dark:border-violet-900 p-3">
+            <LeadMethodSelector
+              value={product.leadMethods ?? []}
+              onChange={updateLeadMethods}
+            />
+          </div>
+        )}
+
+        {/* Web URL */}
+        <Input
+          type="url"
+          placeholder="Página web del producto (opcional)"
+          value={product.websiteUrl ?? ''}
+          onChange={e => onChange({ ...product, websiteUrl: e.target.value })}
+        />
+
+        {/* Audiences for this product */}
+        {audienceNames.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-foreground/70">¿A qué audiencias se dirige este producto?</p>
+            <div className="flex flex-wrap gap-1.5">
+              {audienceNames.map(name => {
+                const active = (product.audiences ?? []).includes(name)
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => toggleAudience(name)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                      active
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Advanced fields toggle */}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? '' : '-rotate-90'}`} />
+          {showAdvanced ? 'Ocultar' : 'Detalles adicionales'} — promoción, precios, beneficios, restricciones
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-3 pt-1 border-t border-border">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Precio actual</p>
+                <Input
+                  placeholder="Ej: $199 / $1,500/mes"
+                  value={product.currentPrice ?? ''}
+                  onChange={e => onChange({ ...product, currentPrice: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Precio anterior (tachado)</p>
+                <Input
+                  placeholder="Ej: $250"
+                  value={product.previousPrice ?? ''}
+                  onChange={e => onChange({ ...product, previousPrice: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Promoción vigente</p>
+              <Input
+                placeholder="Ej: 20% descuento hasta el 30 de mayo"
+                value={product.promotion ?? ''}
+                onChange={e => onChange({ ...product, promotion: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Beneficios clave</p>
+              <TagInput
+                value={product.keyBenefits ?? []}
+                onChange={v => onChange({ ...product, keyBenefits: v })}
+                placeholder="Ej: Entrega en 24 horas"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Diferenciadores vs competencia</p>
+              <Textarea
+                placeholder="Ej: Única plataforma con IA incluida, soporte 24/7 en español..."
+                value={product.differentials ?? ''}
+                onChange={e => onChange({ ...product, differentials: e.target.value })}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">La comunicación DEBE incluir</p>
+              <TagInput
+                value={product.communicationMandatories ?? []}
+                onChange={v => onChange({ ...product, communicationMandatories: v })}
+                placeholder="Ej: Mostrar el logo siempre"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Restricciones legales / disclaimers</p>
+              <Input
+                placeholder="Ej: No prometer rendimientos garantizados"
+                value={product.legalRestrictions ?? ''}
+                onChange={e => onChange({ ...product, legalRestrictions: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function emptyProduct(): PlanProduct {
+  return { name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }
+}
+
+function emptyAudience(): PlanAudience {
+  return { name: '', description: '', beliefs: [], pains: [], jtbd: [] }
 }
 
 export default function PlansPage({ params }: Props) {
@@ -101,37 +430,20 @@ export default function PlansPage({ params }: Props) {
   const [month, setMonth] = useState(defaults.month)
   const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
-  const [products, setProducts] = useState<PlanProduct[]>([{ name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
+  const [products, setProducts] = useState<PlanProduct[]>([emptyProduct()])
+  const [audiences, setAudiences] = useState<PlanAudience[]>([emptyAudience()])
 
   function resetForm() {
     const d = getNextMonth()
     setMonth(d.month)
     setYear(d.year)
     setContext('')
-    setProducts([{ name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
+    setProducts([emptyProduct()])
+    setAudiences([emptyAudience()])
     setShowForm(false)
   }
 
-  function addProduct() {
-    setProducts(p => [...p, { name: '', description: '', objective: '', websiteUrl: '', leadMethods: [] }])
-  }
-
-  function removeProduct(i: number) {
-    setProducts(p => p.filter((_, idx) => idx !== i))
-  }
-
-  function updateProduct(i: number, field: keyof PlanProduct, value: string) {
-    setProducts(p => p.map((prod, idx) => {
-      if (idx !== i) return prod
-      const updated = { ...prod, [field]: value }
-      if (field === 'objective' && value !== 'Generar leads') updated.leadMethods = []
-      return updated
-    }))
-  }
-
-  function updateLeadMethods(i: number, methods: string[]) {
-    setProducts(p => p.map((prod, idx) => idx !== i ? prod : { ...prod, leadMethods: methods }))
-  }
+  const audienceNames = audiences.map(a => a.name).filter(Boolean)
 
   async function handleCreate() {
     const validProducts = products.filter(p => p.name.trim())
@@ -139,8 +451,15 @@ export default function PlansPage({ params }: Props) {
       toast.error('Agrega al menos un producto o servicio')
       return
     }
+    const validAudiences = audiences.filter(a => a.name.trim())
     try {
-      const plan = await createPlan({ month, year, products: validProducts, context: context || undefined })
+      const plan = await createPlan({
+        month,
+        year,
+        products: validProducts,
+        audiences: validAudiences.length ? validAudiences : undefined,
+        context: context || undefined,
+      })
       toast.success('Plan creado')
       router.push(`/brands/${brandId}/plans/${plan.id}`)
     } catch (err) {
@@ -166,7 +485,7 @@ export default function PlansPage({ params }: Props) {
 
         <div className="space-y-5">
 
-          {/* Month picker — visual grid */}
+          {/* Month picker */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-card-foreground">¿Para qué mes?</h2>
@@ -200,15 +519,49 @@ export default function PlansPage({ params }: Props) {
             </div>
           </div>
 
+          {/* Audiences */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-card-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  Audiencias objetivo
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Define a quiénes va dirigido este plan — Claude los usará para personalizar cada pieza</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAudiences(a => [...a, emptyAudience()])}
+                className="shrink-0 text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar
+              </button>
+            </div>
+            <div className="space-y-3">
+              {audiences.map((aud, i) => (
+                <AudienceCard
+                  key={i}
+                  audience={aud}
+                  index={i}
+                  total={audiences.length}
+                  onChange={updated => setAudiences(a => a.map((x, idx) => idx === i ? updated : x))}
+                  onRemove={() => setAudiences(a => a.filter((_, idx) => idx !== i))}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* Products */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-card-foreground">Productos o servicios a promover</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Uno por producto — Claude genera un funnel independiente para cada uno</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Claude genera un funnel independiente para cada uno</p>
               </div>
               <button
-                onClick={addProduct}
+                type="button"
+                onClick={() => setProducts(p => [...p, emptyProduct()])}
                 className="shrink-0 text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -218,83 +571,15 @@ export default function PlansPage({ params }: Props) {
 
             <div className="space-y-3">
               {products.map((prod, i) => (
-                <div key={i} className="rounded-lg border border-border bg-background">
-                  {/* Product header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      {products.length > 1 ? `Producto ${i + 1}` : 'Producto / Servicio'}
-                    </span>
-                    {products.length > 1 && (
-                      <button
-                        onClick={() => removeProduct(i)}
-                        className="rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    <Input
-                      placeholder="Nombre del producto o servicio"
-                      value={prod.name}
-                      onChange={e => updateProduct(i, 'name', e.target.value)}
-                    />
-                    <Textarea
-                      placeholder="Descripción: qué es, qué lo hace diferente, promoción vigente, fecha límite, precio..."
-                      value={prod.description}
-                      onChange={e => updateProduct(i, 'description', e.target.value)}
-                      rows={3}
-                    />
-
-                    {/* Website URL */}
-                    <div className="space-y-1">
-                      <Input
-                        type="url"
-                        placeholder="Página web del producto (opcional)"
-                        value={prod.websiteUrl ?? ''}
-                        onChange={e => updateProduct(i, 'websiteUrl', e.target.value)}
-                      />
-                      <p className="text-[11px] text-muted-foreground px-0.5">
-                        Si tiene landing page o ficha comercial, agrégala para enriquecer el contenido
-                      </p>
-                    </div>
-
-                    {/* Objective */}
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-foreground/70">Objetivo principal</p>
-                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
-                        {OBJECTIVE_OPTIONS.map(o => {
-                          const active = prod.objective === o
-                          return (
-                            <button
-                              key={o}
-                              type="button"
-                              onClick={() => updateProduct(i, 'objective', o)}
-                              className={`rounded-lg border px-2.5 py-2 text-xs font-medium text-left transition-all leading-snug ${
-                                active
-                                  ? 'border-foreground bg-foreground/5 text-foreground ring-1 ring-foreground/20'
-                                  : 'border-border bg-background text-foreground/70 hover:border-foreground/30 hover:text-foreground'
-                              }`}
-                            >
-                              {o}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Lead methods — only when "Generar leads" */}
-                    {prod.objective === 'Generar leads' && (
-                      <div className="rounded-lg border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 dark:border-violet-900 p-3">
-                        <LeadMethodSelector
-                          value={prod.leadMethods ?? []}
-                          onChange={methods => updateLeadMethods(i, methods)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ProductCard
+                  key={i}
+                  product={prod}
+                  index={i}
+                  total={products.length}
+                  onChange={updated => setProducts(p => p.map((x, idx) => idx === i ? updated : x))}
+                  onRemove={() => setProducts(p => p.filter((_, idx) => idx !== i))}
+                  audienceNames={audienceNames}
+                />
               ))}
             </div>
           </div>
@@ -389,6 +674,9 @@ export default function PlansPage({ params }: Props) {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {plan.products.length} producto{plan.products.length !== 1 ? 's' : ''} · {plan.products.map(p => p.name).filter(Boolean).join(', ')}
                   </p>
+                  {plan.audiences?.length > 0 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">{plan.audiences.length} audiencia{plan.audiences.length !== 1 ? 's' : ''}</p>
+                  )}
                   {plan.channelMix?.length > 0 && (
                     <p className="text-xs text-muted-foreground/60 mt-0.5">{plan.channelMix.join(' · ')}</p>
                   )}

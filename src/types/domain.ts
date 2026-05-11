@@ -76,6 +76,39 @@ export type ContentPlatform =
 
 export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention' | 'remarketing'
 
+export type FunnelStageV2 = 'presentacion' | 'evaluacion' | 'conversion'
+
+export interface FunnelDistribution {
+  presentacion: number
+  evaluacion: number
+  conversion: number
+}
+
+export interface PlanAudience {
+  name: string
+  description?: string
+  beliefs?: string[]
+  pains?: string[]
+  jtbd?: string[]
+}
+
+export type ContentCategory = 'social' | 'blog' | 'sem' | 'display'
+
+export type ProductionType =
+  | 'stock'
+  | 'produccion_propia'
+  | 'diseno_grafico'
+  | 'imagen_referencial'
+  | 'video_grabado'
+  | 'animacion'
+
+export type ConversionChannel =
+  | 'whatsapp'
+  | 'landing_page'
+  | 'sitio_web'
+  | 'formulario_meta'
+  | 'app'
+
 export type PlanItemStatus = 'draft' | 'approved' | 'rejected'
 
 export type IdeaType = 'disruptiva' | 'aspiracional' | 'racional'
@@ -98,8 +131,16 @@ export interface PlanProduct {
   description: string
   objective: string
   websiteUrl?: string
-  leadMethod?: string    // legacy — single method
-  leadMethods?: string[] // multi-select — when set, takes precedence
+  leadMethod?: string
+  leadMethods?: string[]
+  promotion?: string
+  currentPrice?: string
+  previousPrice?: string
+  communicationMandatories?: string[]
+  legalRestrictions?: string
+  keyBenefits?: string[]
+  differentials?: string
+  audiences?: string[]
 }
 
 export interface PlanIdea {
@@ -128,7 +169,7 @@ export interface PlanIdea {
 export interface PlanIdeaSet {
   temporality: string
   scheduledDate: string | null
-  funnelStage: FunnelStage
+  funnelStage: FunnelStageV2 | FunnelStage
   channel: string
   targetEmotion: string
   product?: string
@@ -142,11 +183,14 @@ export interface ContentPlan {
   year: number
   status: 'draft' | 'active' | 'completed'
   products: PlanProduct[]
+  audiences: PlanAudience[]
   context: string | null
   strategicBrief: string | null
   channelMix: string[]
   funnelFocus: string
+  funnelDistribution: FunnelDistribution | null
   piecesCount: number
+  totalPieces: number | null
   createdAt: Date
   updatedAt: Date
 }
@@ -156,7 +200,7 @@ export interface ContentPlanItem {
   planId: string
   temporality: string | null
   scheduledDate: string | null
-  funnelStage: FunnelStage
+  funnelStage: FunnelStageV2 | FunnelStage
   objective: string | null
   idea: string | null
   format: string | null
@@ -173,6 +217,10 @@ export interface ContentPlanItem {
   selectedIdeaType: IdeaType | null
   generatedAssets: GeneratedAsset[]
   productionApproved: boolean
+  contentCategory: ContentCategory | null
+  productionType: ProductionType | null
+  conversionChannel: ConversionChannel | null
+  targetAudience: string | null
 }
 
 export interface ContentItem {

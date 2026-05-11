@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ContentPlan, ContentPlanItem, PlanProduct, PlanIdeaSet, FunnelStage, PlanItemStatus, IdeaType, GeneratedAsset } from '@/types/domain'
+import type {
+  ContentPlan, ContentPlanItem, PlanProduct, PlanAudience, PlanIdeaSet,
+  FunnelStage, FunnelStageV2, FunnelDistribution, PlanItemStatus, IdeaType, GeneratedAsset,
+  ContentCategory, ProductionType, ConversionChannel,
+} from '@/types/domain'
 
 type PlanRow = {
   id: string
@@ -8,11 +12,14 @@ type PlanRow = {
   year: number
   status: string
   products: unknown
+  audiences: unknown
   context: string | null
   strategic_brief: string | null
   channel_mix: string[]
   funnel_focus: string
+  funnel_distribution: unknown
   pieces_count: number
+  total_pieces: number | null
   created_at: string
   updated_at: string
 }
@@ -39,6 +46,10 @@ type PlanItemRow = {
   selected_idea_type: string | null
   generated_assets: unknown
   production_approved: boolean
+  content_category: string | null
+  production_type: string | null
+  conversion_channel: string | null
+  target_audience: string | null
   created_at: string
   updated_at: string
 }
@@ -51,11 +62,14 @@ function toPlan(row: PlanRow): ContentPlan {
     year: row.year,
     status: row.status as ContentPlan['status'],
     products: (row.products as PlanProduct[]) ?? [],
+    audiences: (row.audiences as PlanAudience[]) ?? [],
     context: row.context,
     strategicBrief: row.strategic_brief ?? null,
     channelMix: row.channel_mix ?? [],
     funnelFocus: row.funnel_focus ?? 'balanced',
+    funnelDistribution: (row.funnel_distribution as FunnelDistribution | null) ?? null,
     piecesCount: row.pieces_count ?? 12,
+    totalPieces: row.total_pieces ?? null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   }
@@ -67,7 +81,7 @@ function toPlanItem(row: PlanItemRow): ContentPlanItem {
     planId: row.plan_id,
     temporality: row.temporality,
     scheduledDate: row.scheduled_date,
-    funnelStage: row.funnel_stage as FunnelStage,
+    funnelStage: row.funnel_stage as FunnelStageV2 | FunnelStage,
     objective: row.objective,
     idea: row.idea,
     format: row.format,
@@ -84,6 +98,10 @@ function toPlanItem(row: PlanItemRow): ContentPlanItem {
     selectedIdeaType: (row.selected_idea_type as IdeaType | null) ?? null,
     generatedAssets: (row.generated_assets as GeneratedAsset[]) ?? [],
     productionApproved: row.production_approved ?? false,
+    contentCategory: (row.content_category as ContentCategory | null) ?? null,
+    productionType: (row.production_type as ProductionType | null) ?? null,
+    conversionChannel: (row.conversion_channel as ConversionChannel | null) ?? null,
+    targetAudience: row.target_audience ?? null,
   }
 }
 
@@ -103,7 +121,7 @@ export async function listPlansByBrand(
 
 export async function createPlan(
   supabase: SupabaseClient,
-  input: { brandId: string; month: number; year: number; products: PlanProduct[]; context?: string },
+  input: { brandId: string; month: number; year: number; products: PlanProduct[]; audiences?: PlanAudience[]; context?: string },
 ): Promise<ContentPlan> {
   const { data, error } = await supabase
     .from('content_plans')
@@ -112,6 +130,7 @@ export async function createPlan(
       month: input.month,
       year: input.year,
       products: input.products,
+      audiences: input.audiences ?? [],
       context: input.context ?? null,
       status: 'draft',
     })
@@ -168,6 +187,10 @@ export async function insertPlanItems(
     sort_order: i,
     raw_ideas: item.rawIdeas ?? null,
     selected_idea_type: item.selectedIdeaType ?? null,
+    content_category: item.contentCategory ?? null,
+    production_type: item.productionType ?? null,
+    conversion_channel: item.conversionChannel ?? null,
+    target_audience: item.targetAudience ?? null,
   }))
 
   const { data, error } = await supabase
@@ -185,7 +208,9 @@ export async function updatePlan(
     strategicBrief?: string | null
     channelMix?: string[]
     funnelFocus?: string
+    funnelDistribution?: FunnelDistribution | null
     piecesCount?: number
+    totalPieces?: number | null
     status?: ContentPlan['status']
   },
 ): Promise<ContentPlan> {
@@ -193,7 +218,9 @@ export async function updatePlan(
   if (patch.strategicBrief !== undefined) update.strategic_brief = patch.strategicBrief
   if (patch.channelMix !== undefined) update.channel_mix = patch.channelMix
   if (patch.funnelFocus !== undefined) update.funnel_focus = patch.funnelFocus
+  if (patch.funnelDistribution !== undefined) update.funnel_distribution = patch.funnelDistribution
   if (patch.piecesCount !== undefined) update.pieces_count = patch.piecesCount
+  if (patch.totalPieces !== undefined) update.total_pieces = patch.totalPieces
   if (patch.status !== undefined) update.status = patch.status
 
   const { data, error } = await supabase
@@ -229,6 +256,10 @@ export async function updatePlanItem(
   if (patch.selectedIdeaType !== undefined) update.selected_idea_type = patch.selectedIdeaType
   if (patch.generatedAssets !== undefined) update.generated_assets = patch.generatedAssets
   if (patch.productionApproved !== undefined) update.production_approved = patch.productionApproved
+  if (patch.contentCategory !== undefined) update.content_category = patch.contentCategory
+  if (patch.productionType !== undefined) update.production_type = patch.productionType
+  if (patch.conversionChannel !== undefined) update.conversion_channel = patch.conversionChannel
+  if (patch.targetAudience !== undefined) update.target_audience = patch.targetAudience
 
   const { data, error } = await supabase
     .from('content_plan_items')

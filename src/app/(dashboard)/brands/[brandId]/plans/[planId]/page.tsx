@@ -24,7 +24,7 @@ import {
 } from '@/hooks/use-content-plans'
 import { useBrandDetail } from '@/hooks/use-brand-setup'
 import { toast } from 'sonner'
-import type { ContentPlanItem, FunnelStage, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
+import type { ContentPlanItem, FunnelStage, FunnelStageV2, FunnelDistribution, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
 
 interface Props {
   params: Promise<{ brandId: string; planId: string }>
@@ -32,18 +32,24 @@ interface Props {
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-const FUNNEL_COLORS: Record<FunnelStage, string> = {
+const FUNNEL_COLORS: Record<string, string> = {
+  // v2 stages
+  presentacion: 'bg-purple-100 text-purple-700 border-purple-200',
+  evaluacion: 'bg-blue-100 text-blue-700 border-blue-200',
+  conversion: 'bg-green-100 text-green-700 border-green-200',
+  // v1 legacy stages (backward compat)
   awareness: 'bg-purple-100 text-purple-700 border-purple-200',
   consideration: 'bg-blue-100 text-blue-700 border-blue-200',
-  conversion: 'bg-green-100 text-green-700 border-green-200',
   retention: 'bg-orange-100 text-orange-700 border-orange-200',
   remarketing: 'bg-pink-100 text-pink-700 border-pink-200',
 }
 
-const FUNNEL_LABELS: Record<FunnelStage, string> = {
+const FUNNEL_LABELS: Record<string, string> = {
+  presentacion: 'Presentación',
+  evaluacion: 'Evaluación',
+  conversion: 'Conversión',
   awareness: 'Awareness',
   consideration: 'Consideración',
-  conversion: 'Conversión',
   retention: 'Retención',
   remarketing: 'Remarketing',
 }
@@ -107,12 +113,7 @@ const CHANNEL_INFO: Record<string, { description: string }> = {
 }
 
 
-const FUNNEL_FOCUS_OPTIONS = [
-  { value: 'balanced', label: 'Equilibrado', description: 'Distribución balanceada entre todas las etapas' },
-  { value: 'awareness', label: 'Priorizar awareness', description: 'Más alcance y captación de audiencia nueva' },
-  { value: 'conversion', label: 'Priorizar conversión', description: 'Enfoque en ventas y generación de leads' },
-  { value: 'retention', label: 'Priorizar retención', description: 'Fidelización de clientes actuales' },
-]
+const DEFAULT_FUNNEL_DIST: FunnelDistribution = { presentacion: 40, evaluacion: 35, conversion: 25 }
 
 const VIDEO_FORMATS = ['Reel', 'Historia', 'Video', 'Story']
 
@@ -139,18 +140,23 @@ const VISUAL_STYLES = [
 ]
 type VisualStyleId = typeof VISUAL_STYLES[number]['id']
 
-const PAUTA_BY_STAGE: Record<FunnelStage, { objetivo: string; tipo: string; presupuesto: string; plazo: string; tip: string }> = {
+const PAUTA_BY_STAGE: Record<string, { objetivo: string; tipo: string; presupuesto: string; plazo: string; tip: string }> = {
+  presentacion: { objetivo: 'Reconocimiento de marca / Alcance', tipo: 'CPM — costo por mil impresiones', presupuesto: '$5–$15 USD/día', plazo: '7–14 días', tip: 'Audiencias amplias de interés; optimiza por frecuencia 3–5x/semana para fijar la marca' },
+  evaluacion:   { objetivo: 'Tráfico al sitio / Interacción',    tipo: 'CPC — costo por clic',             presupuesto: '$8–$20 USD/día', plazo: '7–10 días', tip: 'Audiencias de interés + retargeting suave de quienes vieron piezas de presentación' },
+  conversion:   { objetivo: 'Conversiones / Ventas directas',    tipo: 'CPA — costo por acción',           presupuesto: '$15–$40 USD/día', plazo: '5–7 días', tip: 'Activa el píxel con evento de compra; lookalike 2% de compradores' },
+  // v1 legacy
   awareness:     { objetivo: 'Reconocimiento de marca / Alcance', tipo: 'CPM — costo por mil impresiones', presupuesto: '$5–$15 USD/día', plazo: '7–14 días', tip: 'Optimiza por frecuencia 3–5x/semana; audiencias amplias de interés' },
   consideration: { objetivo: 'Tráfico al sitio / Interacción',    tipo: 'CPC — costo por clic',              presupuesto: '$8–$20 USD/día', plazo: '7–10 días', tip: 'Audiencias de interés + retargeting suave de visitantes recientes' },
-  conversion:    { objetivo: 'Conversiones / Ventas directas',    tipo: 'CPA — costo por acción',            presupuesto: '$15–$40 USD/día', plazo: '5–7 días', tip: 'Activa el píxel con evento de compra; lookalike 2% de compradores' },
   retention:     { objetivo: 'Engagement / Fidelización',         tipo: 'CPE — costo por engagement',        presupuesto: '$3–$10 USD/día', plazo: '14–30 días', tip: 'Segmenta solo clientes activos y suscriptores; excluye prospectos' },
   remarketing:   { objetivo: 'Retargeting / Re-captación',        tipo: 'CPA — costo por acción',            presupuesto: '$10–$25 USD/día', plazo: '7–14 días', tip: 'Audiencia: visitantes últimos 30 días + carrito abandonado' },
 }
 
-const SCHEDULE_DAY_BY_STAGE: Record<FunnelStage, string> = {
+const SCHEDULE_DAY_BY_STAGE: Record<string, string> = {
+  presentacion: 'Lunes o martes — inicio de semana para mayor alcance orgánico',
+  evaluacion:   'Miércoles o jueves — audiencia más activa y receptiva',
+  conversion:   'Viernes o sábado — mayor intención de compra en fin de semana',
   awareness:     'Lunes o martes — inicio de semana para mayor alcance orgánico',
   consideration: 'Miércoles o jueves — audiencia más activa y receptiva',
-  conversion:    'Viernes o sábado — mayor intención de compra en fin de semana',
   retention:     'Cualquier día — prioriza consistencia sobre timing exacto',
   remarketing:   'Domingo o lunes — alto retorno post fin de semana',
 }
@@ -346,9 +352,9 @@ function SocialMockup({ asset, channel, copy }: { asset: GeneratedAsset; channel
   return <InstagramFeedMockup asset={asset} copy={copy} />
 }
 
-function PautaCard({ funnelStage, channel }: { funnelStage: FunnelStage; channel: string | null }) {
-  const pauta = PAUTA_BY_STAGE[funnelStage]
-  const scheduleDay = SCHEDULE_DAY_BY_STAGE[funnelStage]
+function PautaCard({ funnelStage, channel }: { funnelStage: FunnelStageV2 | FunnelStage | string; channel: string | null }) {
+  const pauta = PAUTA_BY_STAGE[funnelStage] ?? PAUTA_BY_STAGE.conversion
+  const scheduleDay = SCHEDULE_DAY_BY_STAGE[funnelStage] ?? 'Consulta el brief estratégico para el timing recomendado'
   return (
     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Info para pauta publicitaria</p>
@@ -1174,7 +1180,7 @@ export default function PlanDetailPage({ params }: Props) {
 
   // Step 1 state
   const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
-  const [funnelFocus, setFunnelFocus] = useState('balanced')
+  const [funnelDistribution, setFunnelDistribution] = useState<FunnelDistribution>(DEFAULT_FUNNEL_DIST)
 
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
@@ -1194,10 +1200,10 @@ export default function PlanDetailPage({ params }: Props) {
   // Expansion request popup
   const [expansionCheck, setExpansionCheck] = useState<{ expected: number; limit: number } | null>(null)
 
-  // Sync channel mix and funnel focus from stored plan data on load
+  // Sync channel mix and funnel distribution from stored plan data on load
   useEffect(() => {
     if (plan?.channelMix?.length) setChannelMix(plan.channelMix)
-    if (plan?.funnelFocus) setFunnelFocus(plan.funnelFocus)
+    if (plan?.funnelDistribution) setFunnelDistribution(plan.funnelDistribution)
   }, [plan?.id])
 
   function toggleChannel(ch: string) {
@@ -1211,9 +1217,14 @@ export default function PlanDetailPage({ params }: Props) {
       toast.error('Selecciona al menos un canal')
       return
     }
+    const total = funnelDistribution.presentacion + funnelDistribution.evaluacion + funnelDistribution.conversion
+    if (Math.abs(total - 100) > 1) {
+      toast.error(`Los porcentajes deben sumar 100% (ahora suman ${total}%)`)
+      return
+    }
     const computedPieces = (plan?.products?.length ?? 1) * 7
     try {
-      await generateBrief({ channelMix, funnelFocus, piecesCount: computedPieces })
+      await generateBrief({ channelMix, funnelDistribution, piecesCount: computedPieces })
       toast.success('Brief estratégico generado')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar brief')
@@ -1445,30 +1456,57 @@ export default function PlanDetailPage({ params }: Props) {
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
           <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
           <p className="text-sm text-violet-800">
-            Generaré un funnel completo por cada producto: <strong>{totalPieces} piezas</strong> ({numProducts} producto{numProducts !== 1 ? 's' : ''} × 7 etapas). Confirma los canales y el enfoque del mes.
+            Generaré un funnel completo por cada producto: <strong>{totalPieces} piezas</strong> ({numProducts} producto{numProducts !== 1 ? 's' : ''} × 7 piezas). Confirma los canales y la distribución del funnel.
           </p>
         </div>
 
         <div className="space-y-4">
-          {/* Funnel distribution info */}
-          <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Distribución del funnel por producto</p>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              {[
-                { label: 'Awareness', pieces: 2, color: 'bg-purple-100 text-purple-700' },
-                { label: 'Consideración', pieces: 2, color: 'bg-blue-100 text-blue-700' },
-                { label: 'Conversión', pieces: 2, color: 'bg-green-100 text-green-700' },
-                { label: 'Remarketing', pieces: 1, color: 'bg-pink-100 text-pink-700' },
-              ].map(stage => (
-                <div key={stage.label} className={`rounded-lg px-2 py-2.5 ${stage.color}`}>
-                  <p className="text-lg font-bold">{stage.pieces}</p>
-                  <p className="text-[10px] font-medium leading-tight mt-0.5">{stage.label}</p>
-                </div>
-              ))}
+          {/* Funnel distribution — percentage inputs */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div>
+              <h2 className="font-semibold text-card-foreground">Distribución del funnel</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Define qué porcentaje de las piezas va a cada etapa del customer journey (debe sumar 100%)</p>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground text-center">
-              Cada pieza incluye guion, slides o copy completo listo para producción
-            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                { key: 'presentacion' as const, label: 'Presentación', desc: 'Primera impresión', color: 'text-purple-700' },
+                { key: 'evaluacion' as const, label: 'Evaluación', desc: 'Resolver dudas', color: 'text-blue-700' },
+                { key: 'conversion' as const, label: 'Conversión', desc: 'Cerrar la venta', color: 'text-green-700' },
+              ]).map(({ key, label, desc, color }) => {
+                const pieces = Math.round((funnelDistribution[key] / 100) * 7)
+                return (
+                  <div key={key} className="rounded-lg border border-border bg-background p-3 space-y-2">
+                    <div>
+                      <p className={`text-xs font-semibold ${color}`}>{label}</p>
+                      <p className="text-[10px] text-muted-foreground">{desc}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={funnelDistribution[key]}
+                        onChange={e => {
+                          const val = Math.min(100, Math.max(0, Number(e.target.value)))
+                          setFunnelDistribution(prev => ({ ...prev, [key]: val }))
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-bold text-center focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">≈ {pieces} pieza{pieces !== 1 ? 's' : ''}/producto</p>
+                  </div>
+                )
+              })}
+            </div>
+            {(() => {
+              const total = funnelDistribution.presentacion + funnelDistribution.evaluacion + funnelDistribution.conversion
+              return total !== 100 ? (
+                <p className="text-xs text-amber-600 font-medium text-center">Total actual: {total}% — debe ser exactamente 100%</p>
+              ) : (
+                <p className="text-xs text-green-600 font-medium text-center">✓ Distribución válida</p>
+              )
+            })()}
           </div>
 
           {/* Channels */}
@@ -1501,30 +1539,6 @@ export default function PlanDetailPage({ params }: Props) {
                   </button>
                 )
               })}
-            </div>
-          </div>
-
-          {/* Funnel focus */}
-          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <div>
-              <h2 className="font-semibold text-card-foreground">¿Cuál es la prioridad estratégica del mes?</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Define el foco para la distribución de contenidos</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {FUNNEL_FOCUS_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setFunnelFocus(opt.value)}
-                  className={`rounded-lg border p-3 text-left transition-colors ${
-                    funnelFocus === opt.value
-                      ? 'border-foreground bg-foreground/5'
-                      : 'border-border hover:border-foreground/50'
-                  }`}
-                >
-                  <p className="text-sm font-medium text-card-foreground">{opt.label}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{opt.description}</p>
-                </button>
-              ))}
             </div>
           </div>
 
