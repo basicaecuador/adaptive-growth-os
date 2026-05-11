@@ -8,7 +8,7 @@ import { getBrandWithSetup } from '@/services/brands.service'
 import { getAnthropicClient } from '@/lib/ai/client'
 import { errorResponse } from '@/lib/utils/errors'
 import { getServerUser } from '@/lib/supabase/server-client'
-import type { FunnelStageV2, PlanIdeaSet, IdeaType, FunnelDistribution, ContentCategory, ProductionType, ConversionChannel } from '@/types/domain'
+import type { FunnelStageV2, PlanIdeaSet, IdeaType, FunnelDistribution, ContentCategory, ProductionType, ConversionChannel, PlanProduct, PlanAudience } from '@/types/domain'
 
 const DEFAULT_DISTRIBUTION: FunnelDistribution = { presentacion: 40, evaluacion: 35, conversion: 25 }
 
@@ -63,115 +63,90 @@ function distributePieces(total: number, dist: FunnelDistribution): { presentaci
   return { presentacion: p, evaluacion: e, conversion: Math.max(0, c) }
 }
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ planId: string }> },
-) {
-  try {
-    const user = await getServerUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+function parseRawPieces(rawText: string, productName: string): RawPiece[] {
+  if (!rawText) throw new Error(`Sin respuesta para producto "${productName}"`)
+  const stripped = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
+  const jsonMatch = stripped.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) throw new Error(`JSON inválido para "${productName}": ${stripped.slice(0, 200)}`)
+  return JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1')) as RawPiece[]
+}
 
-    const { planId } = await params
-    const db = createAdminClient()
-    const { plan } = await getPlanWithItems(db, planId)
-    const brand = await getBrandWithSetup(db, plan.brandId)
+function buildProductPrompt(args: {
+  product: PlanProduct
+  brand: Record<string, unknown>
+  monthName: string
+  yy: number
+  mm: string
+  ecuadorDates: string
+  strategicBrief: string | null
+  planAudiences: PlanAudience[]
+  stageChannels: { presentacion: string[]; evaluacion: string[]; conversion: string[]; conversionChannel: string | null }
+  counts: { presentacion: number; evaluacion: number; conversion: number }
+}): string {
+  const { product: p, brand, monthName, yy, mm, ecuadorDates, strategicBrief, planAudiences, stageChannels, counts } = args
 
-    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-    const monthName = monthNames[plan.month - 1]
-    const ecuadorDates = ECUADOR_DATES[plan.month]?.join('\n') ?? ''
+  const pillars = Array.isArray(brand.puntosClave) && (brand.puntosClave as string[]).length
+    ? (brand.puntosClave as string[]).join(' · ')
+    : null
 
-    const products = plan.products
-    const numProducts = products.length
-    const dist = plan.funnelDistribution ?? DEFAULT_DISTRIBUTION
-    const PIECES_PER_PRODUCT = 7
-    const counts = distributePieces(PIECES_PER_PRODUCT, dist)
-    const totalPieces = numProducts * PIECES_PER_PRODUCT
+  const methods = (p.leadMethods?.length ? p.leadMethods : p.leadMethod ? [p.leadMethod] : []) as string[]
+  const methodText = methods.length === 0 ? ''
+    : methods.length === 1 ? ` — captura de lead via: ${methods[0]}`
+    : ` — captura de lead via MÚLTIPLES MÉTODOS: ${methods.join(', ')} → generar alternate_ctas`
 
-    const mm = String(plan.month).padStart(2, '0')
-    const yy = plan.year
+  const productLines = [`"${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${methodText}`]
+  if (p.promotion) productLines.push(`Promoción: ${p.promotion}`)
+  if (p.currentPrice) productLines.push(`Precio: ${p.currentPrice}${p.previousPrice ? ` (antes: ${p.previousPrice})` : ''}`)
+  if (p.keyBenefits?.length) productLines.push(`Beneficios: ${p.keyBenefits.join(', ')}`)
+  if (p.differentials) productLines.push(`Diferenciadores: ${p.differentials}`)
+  if (p.communicationMandatories?.length) productLines.push(`DEBE incluir: ${p.communicationMandatories.join(' / ')}`)
+  if (p.legalRestrictions) productLines.push(`Restricción legal: ${p.legalRestrictions}`)
+  if (p.websiteUrl) productLines.push(`Web: ${p.websiteUrl}`)
 
-    // Per-product stage channel lookup
-    const productStages = dist.productStages ?? []
-
-    function getProductStageChannels(productName: string) {
-      const pf = productStages.find(p => p.product === productName)
-      if (pf?.stages.length === 3) {
-        return {
-          presentacion: pf.stages[0].channels,
-          evaluacion:   pf.stages[1].channels,
-          conversion:   pf.stages[2].channels,
-          conversionChannel: pf.stages[2].conversionChannel ?? null,
-        }
-      }
-      // Fallback: old global stages or channelMix
-      const fallback = plan.channelMix ?? []
-      return { presentacion: fallback, evaluacion: fallback, conversion: fallback, conversionChannel: null }
+  const audNames = p.audiences?.length ? p.audiences : null
+  if (audNames?.length) {
+    productLines.push(`Audiencias objetivo: ${audNames.join(', ')}`)
+    const audDetails = planAudiences.filter(a => audNames.includes(a.name))
+    for (const a of audDetails) {
+      const detail: string[] = []
+      if (a.description) detail.push(a.description)
+      if (a.age) detail.push(`edad: ${a.age}`)
+      if (a.interests?.length) detail.push(`intereses: ${a.interests.slice(0, 3).join(', ')}`)
+      if (a.beliefs?.length) detail.push(`creencias: ${a.beliefs.slice(0, 2).join(' / ')}`)
+      if (a.pains?.length) detail.push(`dolores: ${a.pains.slice(0, 2).join(' / ')}`)
+      if (a.jtbd?.length) detail.push(`desean: ${a.jtbd.slice(0, 2).join(' / ')}`)
+      if (detail.length) productLines.push(`  → ${a.name}: ${detail.join(' | ')}`)
     }
+  }
 
-    const allChannels = [...new Set(
-      productStages.length
-        ? productStages.flatMap(pf => pf.stages.flatMap(s => s.channels))
-        : (plan.channelMix ?? ['Meta'])
-    )]
-    const channelList = allChannels.join(', ') || 'Meta'
+  const channelsByStage = [
+    `Presentación → ${stageChannels.presentacion.join(', ') || 'cualquier canal'}`,
+    `Evaluación → ${stageChannels.evaluacion.join(', ') || 'cualquier canal'}`,
+    `Conversión → ${stageChannels.conversion.join(', ') || 'cualquier canal'}${stageChannels.conversionChannel ? ` | cierre: ${stageChannels.conversionChannel}` : ''}`,
+  ].join('\n')
 
-    const channelsByProductText = products.map(p => {
-      const sc = getProductStageChannels(p.name)
-      return [
-        `  ${p.name}:`,
-        `    Presentación → ${sc.presentacion.join(', ') || 'cualquier canal'}`,
-        `    Evaluación → ${sc.evaluacion.join(', ') || 'cualquier canal'}`,
-        `    Conversión → ${sc.conversion.join(', ') || 'cualquier canal'}${sc.conversionChannel ? ` | cierre: ${sc.conversionChannel}` : ''}`,
-      ].join('\n')
-    }).join('\n')
+  const brandAudiencesText = Array.isArray(brand.audienciasMarca) && (brand.audienciasMarca as unknown[]).length
+    ? `\n═══ AUDIENCIAS DE LA MARCA ═══\n${(brand.audienciasMarca as Array<{ name: string; description?: string; beliefs?: string[]; pains?: string[]; jtbd?: string[] }>).map(a => {
+        const lines = [`• ${a.name}${a.description ? ` — ${a.description}` : ''}`]
+        if (a.beliefs?.length) lines.push(`  Creencias: ${a.beliefs.join(' / ')}`)
+        if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
+        if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
+        return lines.join('\n')
+      }).join('\n')}`
+    : ''
 
-    const pillars = Array.isArray(brand.puntosClave) && brand.puntosClave.length
-      ? brand.puntosClave.join(' · ')
-      : null
+  const planAudiencesText = planAudiences.length
+    ? `\n═══ AUDIENCIAS DEL PLAN ═══\n${planAudiences.map(a => {
+        const lines = [`• ${a.name}${a.age ? ` (${a.age})` : ''}${a.description ? ` — ${a.description}` : ''}`]
+        if (a.interests?.length) lines.push(`  Intereses: ${a.interests.join(', ')}`)
+        if (a.beliefs?.length) lines.push(`  Creencias limitantes: ${a.beliefs.join(' / ')}`)
+        if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
+        if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
+        return lines.join('\n')
+      }).join('\n')}\n`
+    : ''
 
-    const productsDetail = products.map((p, i) => {
-      const methods = p.leadMethods?.length ? p.leadMethods : p.leadMethod ? [p.leadMethod] : []
-      const methodText = methods.length === 0 ? ''
-        : methods.length === 1 ? ` — captura de lead via: ${methods[0]}`
-        : ` — captura de lead via MÚLTIPLES MÉTODOS: ${methods.join(', ')} → generar alternate_ctas`
-      const lines = [`${i + 1}. "${p.name}": ${p.description}${p.objective ? ` — objetivo: ${p.objective}` : ''}${methodText}`]
-      if (p.promotion) lines.push(`   Promoción: ${p.promotion}`)
-      if (p.currentPrice) lines.push(`   Precio: ${p.currentPrice}${p.previousPrice ? ` (antes: ${p.previousPrice})` : ''}`)
-      if (p.keyBenefits?.length) lines.push(`   Beneficios: ${p.keyBenefits.join(', ')}`)
-      if (p.differentials) lines.push(`   Diferenciadores: ${p.differentials}`)
-      if (p.communicationMandatories?.length) lines.push(`   DEBE incluir: ${p.communicationMandatories.join(' / ')}`)
-      if (p.legalRestrictions) lines.push(`   Restricción legal: ${p.legalRestrictions}`)
-      if (p.websiteUrl) lines.push(`   Web: ${p.websiteUrl}`)
-      const audNames = p.audiences?.length ? p.audiences : null
-      if (audNames?.length) {
-        lines.push(`   Audiencias objetivo: ${audNames.join(', ')}`)
-        const audDetails = (plan.audiences ?? []).filter(a => audNames.includes(a.name))
-        for (const a of audDetails) {
-          const detail: string[] = []
-          if (a.description) detail.push(a.description)
-          if (a.age) detail.push(`edad: ${a.age}`)
-          if (a.interests?.length) detail.push(`intereses: ${a.interests.slice(0, 3).join(', ')}`)
-          if (a.beliefs?.length) detail.push(`creencias: ${a.beliefs.slice(0, 2).join(' / ')}`)
-          if (a.pains?.length) detail.push(`dolores: ${a.pains.slice(0, 2).join(' / ')}`)
-          if (a.jtbd?.length) detail.push(`desean: ${a.jtbd.slice(0, 2).join(' / ')}`)
-          if (detail.length) lines.push(`     → ${a.name}: ${detail.join(' | ')}`)
-        }
-      }
-      return lines.join('\n')
-    }).join('\n\n')
-
-    const audiencesSection = plan.audiences?.length
-      ? `\n═══ AUDIENCIAS DEL PLAN ═══\n${plan.audiences.map(a => {
-          const lines = [`• ${a.name}${a.age ? ` (${a.age})` : ''}${a.description ? ` — ${a.description}` : ''}`]
-          if (a.interests?.length) lines.push(`  Intereses: ${a.interests.join(', ')}`)
-          if (a.beliefs?.length) lines.push(`  Creencias limitantes: ${a.beliefs.join(' / ')}`)
-          if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
-          if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
-          return lines.join('\n')
-        }).join('\n')}\n`
-      : ''
-
-    const prompt = `Eres el mejor estratega creativo de contenidos para marcas en Ecuador y Latinoamérica. Dominas los frameworks Stop/Think/Act, Pitch/Play/Plan y todas las reglas de plataforma Meta. Generas ideas concretas, originales y listas para producción — nada genérico.
+  return `Eres el mejor estratega creativo de contenidos para marcas en Ecuador y Latinoamérica. Dominas los frameworks Stop/Think/Act, Pitch/Play/Plan y todas las reglas de plataforma Meta. Generas ideas concretas, originales y listas para producción — nada genérico.
 
 ═══ MARCA ═══
 Nombre: ${brand.name}
@@ -180,42 +155,27 @@ Concepto comunicacional: ${brand.conceptoComunicacional || 'N/A'}
 Propuesta de valor: ${brand.valueProposition || 'N/A'}
 Tono y estilo: ${brand.tonoEstilo || 'N/A'}
 ${pillars ? `Puntos clave: ${pillars}` : ''}
-${brand.mandatoriosGenerales?.length ? `Mandatorios (siempre incluir): ${brand.mandatoriosGenerales.join(' / ')}` : ''}
-${brand.competidores?.length ? `Competidores: ${brand.competidores.join(', ')}` : ''}
-${brand.audienciasMarca?.length ? `\n═══ AUDIENCIAS DE LA MARCA ═══\n${(brand.audienciasMarca as Array<{ name: string; description?: string; beliefs?: string[]; pains?: string[]; jtbd?: string[] }>).map(a => {
-  const lines = [`• ${a.name}${a.description ? ` — ${a.description}` : ''}`]
-  if (a.beliefs?.length) lines.push(`  Creencias: ${a.beliefs.join(' / ')}`)
-  if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
-  if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
-  return lines.join('\n')
-}).join('\n')}` : ''}
-${audiencesSection}
+${Array.isArray(brand.mandatoriosGenerales) && (brand.mandatoriosGenerales as string[]).length ? `Mandatorios (siempre incluir): ${(brand.mandatoriosGenerales as string[]).join(' / ')}` : ''}
+${Array.isArray(brand.competidores) && (brand.competidores as string[]).length ? `Competidores: ${(brand.competidores as string[]).join(', ')}` : ''}
+${brandAudiencesText}
+${planAudiencesText}
 ═══ MES ═══
 ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
 
 ═══ BRIEF ESTRATÉGICO DEL MES ═══
-${plan.strategicBrief ?? ''}
+${strategicBrief ?? ''}
 
-═══ CANALES POR PRODUCTO Y ETAPA (SOLO estos, respetar asignación) ═══
-${channelsByProductText}
+═══ CANALES POR ETAPA (SOLO estos) ═══
+${channelsByStage}
 
-Canales totales disponibles: ${channelList}
-
-PRODUCTOS:
-${productsDetail}
+═══ PRODUCTO A GENERAR ═══
+${productLines.join('\n')}
 
 INSTRUCCIÓN:
-Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
-Por cada producto genera exactamente ${PIECES_PER_PRODUCT} piezas. Usa la distribución y canales configurados POR PRODUCTO (ver "CANALES POR PRODUCTO Y ETAPA"):
+Genera exactamente 7 piezas para este producto, distribuidas en 3 etapas:
 - presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva.
-- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios.
-- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera.
-IMPORTANTE: el campo "channel" de cada pieza debe ser SOLO uno de los canales asignados a esa etapa para ese producto.
-
-TOTAL: ${numProducts} producto(s) × ${PIECES_PER_PRODUCT} = ${totalPieces} piezas
-
-Genera UNA idea por pieza, completamente desarrollada y lista para producción.
-FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
+- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, testimonios.
+- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, oferta concreta, eliminar última barrera.${stageChannels.conversionChannel ? ` Canal de cierre: ${stageChannels.conversionChannel}.` : ''}
 
 CAPTURA DE LEADS:
 Un solo método → adapta el CTA al método indicado:
@@ -257,10 +217,13 @@ MÚLTIPLES HOOKS (para cada pieza):
 - hook: texto exacto del hook seleccionado (máx 10 palabras)
 
 CLASIFICACIÓN POR PIEZA:
-- content_category: "social" (Instagram/Facebook/TikTok) | "sem" (Google Search) | "display" (Google Display/banners) | "blog" (artículo SEO)
+- content_category: "social" (Meta/TikTok) | "sem" (Google Search) | "display" (Google Display/banners) | "blog" (artículo SEO)
 - production_type: "stock" | "produccion_propia" | "diseno_grafico" | "imagen_referencial" | "video_grabado" | "animacion"
 - conversion_channel: solo para etapa "conversion" → "whatsapp" | "landing_page" | "sitio_web" | "formulario_meta" | "app" | null
-- target_audience: nombre EXACTO de la audiencia objetivo de esta pieza — usa el nombre de las audiencias asignadas al producto (campo "Audiencias objetivo" del producto); si el producto tiene múltiples audiencias alterna entre ellas; null solo si el producto no tiene audiencias asignadas
+- target_audience: nombre EXACTO de la audiencia objetivo de esta pieza; null si no hay audiencias asignadas
+- channel: SOLO de los canales asignados a esa etapa (ver "CANALES POR ETAPA")
+
+FORMATOS: Reel | Carrusel | Post estático | Historia | Google Search Ad | Google Display
 
 CONTENIDO POR FORMATO:
 Reel/Historia → content="HOOK TYPE: [visual|texto|trending]\\nAUDIO: [música o voz]\\nESC1 (Xs): Visual:[...] | Voz:[...] | Pantalla:[texto obligatorio]\\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[CTA visible]\\nDURACIÓN: Xs | MOMENTO: [Pitch|Plan]\\nSHAREABILITY: [motivo concreto]"
@@ -273,28 +236,99 @@ REGLAS JSON:
 - idea_type: presentacion→disruptiva | evaluacion→aspiracional | conversion→racional
 - name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
 - higgsfield_prompt: SOLO Reel/Historia — movimiento cámara + atmósfera + luz ("" para el resto)
-- channel: SOLO del canal asignado a esa etapa del funnel (ver "CANALES POR ETAPA")
 
-JSON — solo el array sin markdown:
-[{"product":"nombre producto","funnel_stage":"presentacion","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","content_category":"social","production_type":"video_grabado","conversion_channel":null,"target_audience":null,"name":"Tres palabras concepto","limiting_belief":"Es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto inesperado","why":"El movimiento fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto genera más clicks en presentación","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","alternate_ctas":[],"content":"HOOK TYPE: texto\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo en acción] | Voz:[Con X logras Y en Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado + logo] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que querrán reenviar","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
+JSON — solo el array sin markdown (7 objetos exactos):
+[{"product":"${p.name}","funnel_stage":"presentacion","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Meta","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","content_category":"social","production_type":"video_grabado","conversion_channel":null,"target_audience":null,"name":"Tres palabras concepto","limiting_belief":"Es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto","why":"El movimiento fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto genera más clicks en presentación","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","alternate_ctas":[],"content":"HOOK TYPE: texto\\nAUDIO: música tensa\\nESC1 (3s): Visual:[primer plano] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo] | Voz:[Con X logras Y] | Pantalla:[Beneficio]\\nESC3 (5s): Visual:[resultado + logo] | Voz:[Empieza hoy] | Pantalla:[Escríbenos →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`
+}
+
+export async function POST(
+  _req: NextRequest,
+  { params }: { params: Promise<{ planId: string }> },
+) {
+  try {
+    const user = await getServerUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { planId } = await params
+    const db = createAdminClient()
+    const { plan } = await getPlanWithItems(db, planId)
+    const brand = await getBrandWithSetup(db, plan.brandId)
+
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+    const monthName = monthNames[plan.month - 1]
+    const ecuadorDates = ECUADOR_DATES[plan.month]?.join('\n') ?? ''
+
+    const products = plan.products
+    const dist = plan.funnelDistribution ?? DEFAULT_DISTRIBUTION
+    const PIECES_PER_PRODUCT = 7
+    const productStages = dist.productStages ?? []
+
+    const mm = String(plan.month).padStart(2, '0')
+    const yy = plan.year
+
+    function getProductStageChannels(productName: string) {
+      const pf = productStages.find(p => p.product === productName)
+      if (pf?.stages.length === 3) {
+        return {
+          presentacion: pf.stages[0].channels,
+          evaluacion:   pf.stages[1].channels,
+          conversion:   pf.stages[2].channels,
+          conversionChannel: pf.stages[2].conversionChannel ?? null,
+        }
+      }
+      const fallback = plan.channelMix ?? []
+      return { presentacion: fallback, evaluacion: fallback, conversion: fallback, conversionChannel: null }
+    }
+
+    function getProductCounts(productName: string) {
+      const pf = productStages.find(p => p.product === productName)
+      if (pf?.stages.length === 3) {
+        const p = Math.round(PIECES_PER_PRODUCT * pf.stages[0].percentage / 100)
+        const e = Math.round(PIECES_PER_PRODUCT * pf.stages[1].percentage / 100)
+        const c = PIECES_PER_PRODUCT - p - e
+        return { presentacion: p, evaluacion: e, conversion: Math.max(0, c) }
+      }
+      return distributePieces(PIECES_PER_PRODUCT, dist)
+    }
 
     const anthropic = getAnthropicClient()
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16000,
-      system: 'Eres un generador de JSON para estrategia de contenidos. Responde ÚNICAMENTE con un array JSON válido. Sin markdown, sin bloques de código. Empieza con [ y termina con ].',
-      messages: [{ role: 'user', content: prompt }],
-    })
+    const system = 'Eres un generador de JSON para estrategia de contenidos. Responde ÚNICAMENTE con un array JSON válido. Sin markdown, sin bloques de código. Empieza con [ y termina con ].'
 
-    const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
-    if (message.stop_reason === 'max_tokens') {
-      throw new Error(`La respuesta fue demasiado larga y se cortó. Intenta con menos productos (máximo 2).`)
-    }
-    const stripped = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim()
-    const jsonMatch = stripped.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) throw new Error(`Respuesta inválida del modelo: ${stripped.slice(0, 200)}`)
+    // Generate all products in parallel
+    const productResults = await Promise.all(
+      products.map(async product => {
+        const stageChannels = getProductStageChannels(product.name)
+        const counts = getProductCounts(product.name)
+        const prompt = buildProductPrompt({
+          product,
+          brand: brand as unknown as Record<string, unknown>,
+          monthName,
+          yy,
+          mm,
+          ecuadorDates,
+          strategicBrief: plan.strategicBrief,
+          planAudiences: plan.audiences ?? [],
+          stageChannels,
+          counts,
+        })
 
-    const generated = JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1')) as RawPiece[]
+        const message = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 7000,
+          system,
+          messages: [{ role: 'user', content: prompt }],
+        })
+
+        if (message.stop_reason === 'max_tokens') {
+          throw new Error(`Respuesta cortada para "${product.name}". Intenta reducir el detalle del producto.`)
+        }
+
+        const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
+        return parseRawPieces(rawText, product.name)
+      })
+    )
+
+    const generated = productResults.flat()
 
     await db.from('content_plan_items').delete().eq('plan_id', planId)
 
