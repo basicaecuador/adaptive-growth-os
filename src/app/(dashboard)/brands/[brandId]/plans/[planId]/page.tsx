@@ -24,7 +24,7 @@ import {
 } from '@/hooks/use-content-plans'
 import { useBrandDetail } from '@/hooks/use-brand-setup'
 import { toast } from 'sonner'
-import type { ContentPlanItem, FunnelStage, FunnelStageV2, FunnelDistribution, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
+import type { ContentPlanItem, FunnelStage, FunnelStageV2, FunnelDistribution, FunnelStageConfig, PlanIdea, IdeaType, GeneratedAsset, AdFormat } from '@/types/domain'
 
 interface Props {
   params: Promise<{ brandId: string; planId: string }>
@@ -111,6 +111,29 @@ const CHANNEL_INFO: Record<string, { description: string }> = {
   Email: { description: 'Alta conversión · Sin algoritmo, audiencia propia' },
   WhatsApp: { description: 'Cierre de ventas directo · Status y difusión' },
 }
+
+const FUNNEL_CHANNELS = [
+  'Meta', 'TikTok', 'Google Display', 'Google Search',
+  'YouTube', 'LinkedIn', 'WhatsApp', 'Landing Page', 'Blog', 'Email',
+]
+
+const CONVERSION_CHANNELS = [
+  'WhatsApp', 'Landing Page', 'Formulario Meta', 'Sitio web', 'App', 'Llamada', 'Tienda física',
+]
+
+const STAGE_META: Record<'presentacion' | 'evaluacion' | 'conversion', {
+  label: string; desc: string; color: string; border: string; bg: string; textColor: string
+}> = {
+  presentacion: { label: 'Presentación', desc: 'Primera impresión — generar interés', color: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800', bg: 'bg-purple-50/50 dark:bg-purple-950/20', textColor: 'text-purple-700' },
+  evaluacion:   { label: 'Evaluación',   desc: 'Resolver dudas — mostrar beneficios', color: 'text-blue-700 dark:text-blue-300',   border: 'border-blue-200 dark:border-blue-800',   bg: 'bg-blue-50/50 dark:bg-blue-950/20',   textColor: 'text-blue-700' },
+  conversion:   { label: 'Conversión',   desc: 'Cerrar la venta — generar acción',   color: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800', bg: 'bg-green-50/50 dark:bg-green-950/20', textColor: 'text-green-700' },
+}
+
+const DEFAULT_STAGE_CONFIGS: FunnelStageConfig[] = [
+  { key: 'presentacion', percentage: 40, channels: [], notes: '' },
+  { key: 'evaluacion',   percentage: 35, channels: [], notes: '' },
+  { key: 'conversion',   percentage: 25, channels: [], notes: '', conversionChannel: '' },
+]
 
 
 const DEFAULT_FUNNEL_DIST: FunnelDistribution = { presentacion: 40, evaluacion: 35, conversion: 25 }
@@ -1178,9 +1201,8 @@ export default function PlanDetailPage({ params }: Props) {
   const plan = data?.plan
   const items = data?.items ?? []
 
-  // Step 1 state
-  const [channelMix, setChannelMix] = useState<string[]>(['Instagram', 'Facebook'])
-  const [funnelDistribution, setFunnelDistribution] = useState<FunnelDistribution>(DEFAULT_FUNNEL_DIST)
+  // Step 1 state — funnel stage configs
+  const [stageConfigs, setStageConfigs] = useState<FunnelStageConfig[]>(DEFAULT_STAGE_CONFIGS)
 
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
@@ -1200,31 +1222,57 @@ export default function PlanDetailPage({ params }: Props) {
   // Expansion request popup
   const [expansionCheck, setExpansionCheck] = useState<{ expected: number; limit: number } | null>(null)
 
-  // Sync channel mix and funnel distribution from stored plan data on load
+  // Load saved funnel config from plan
   useEffect(() => {
-    if (plan?.channelMix?.length) setChannelMix(plan.channelMix)
-    if (plan?.funnelDistribution) setFunnelDistribution(plan.funnelDistribution)
+    if (!plan?.funnelDistribution) return
+    const dist = plan.funnelDistribution
+    if (dist.stages?.length === 3) {
+      setStageConfigs(dist.stages)
+    } else {
+      setStageConfigs([
+        { key: 'presentacion', percentage: dist.presentacion ?? 40, channels: plan.channelMix ?? [], notes: '' },
+        { key: 'evaluacion',   percentage: dist.evaluacion   ?? 35, channels: plan.channelMix ?? [], notes: '' },
+        { key: 'conversion',   percentage: dist.conversion   ?? 25, channels: plan.channelMix ?? [], notes: '', conversionChannel: '' },
+      ])
+    }
   }, [plan?.id])
 
-  function toggleChannel(ch: string) {
-    setChannelMix(prev =>
-      prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]
-    )
+  function updateStage(key: FunnelStageConfig['key'], patch: Partial<FunnelStageConfig>) {
+    setStageConfigs(prev => prev.map(s => s.key === key ? { ...s, ...patch } : s))
   }
 
+  function toggleStageChannel(key: FunnelStageConfig['key'], ch: string) {
+    const stage = stageConfigs.find(s => s.key === key)
+    if (!stage) return
+    const channels = stage.channels.includes(ch)
+      ? stage.channels.filter(c => c !== ch)
+      : [...stage.channels, ch]
+    updateStage(key, { channels })
+  }
+
+  const pctTotal = stageConfigs.reduce((sum, s) => sum + s.percentage, 0)
+
   async function handleGenerateBrief() {
-    if (channelMix.length === 0) {
-      toast.error('Selecciona al menos un canal')
+    if (Math.abs(pctTotal - 100) > 1) {
+      toast.error('La distribución del funnel debe sumar 100%')
       return
     }
-    const total = funnelDistribution.presentacion + funnelDistribution.evaluacion + funnelDistribution.conversion
-    if (Math.abs(total - 100) > 1) {
-      toast.error(`Los porcentajes deben sumar 100% (ahora suman ${total}%)`)
+    const active = stageConfigs.filter(s => s.percentage > 0)
+    if (active.some(s => s.channels.length === 0)) {
+      toast.error('Selecciona al menos un canal en cada etapa activa')
       return
     }
-    const computedPieces = (plan?.products?.length ?? 1) * 7
+    const numProducts = plan?.products?.length ?? 1
+    const totalPieces = numProducts * 7
+    const funnelDist: FunnelDistribution = {
+      presentacion: stageConfigs[0].percentage,
+      evaluacion:   stageConfigs[1].percentage,
+      conversion:   stageConfigs[2].percentage,
+      stages: stageConfigs,
+    }
+    const channelMix = [...new Set(stageConfigs.flatMap(s => s.channels))]
     try {
-      await generateBrief({ channelMix, funnelDistribution, piecesCount: computedPieces })
+      await generateBrief({ channelMix, funnelDistribution: funnelDist, piecesCount: totalPieces })
       toast.success('Brief estratégico generado')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al generar brief')
@@ -1473,90 +1521,113 @@ export default function PlanDetailPage({ params }: Props) {
         </div>
 
         <div className="space-y-4">
-          {/* Funnel distribution — percentage inputs */}
-          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <div>
-              <h2 className="font-semibold text-card-foreground">Distribución del funnel</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Define qué porcentaje de las piezas va a cada etapa del customer journey (debe sumar 100%)</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {([
-                { key: 'presentacion' as const, label: 'Presentación', desc: 'Primera impresión', color: 'text-purple-700' },
-                { key: 'evaluacion' as const, label: 'Evaluación', desc: 'Resolver dudas', color: 'text-blue-700' },
-                { key: 'conversion' as const, label: 'Conversión', desc: 'Cerrar la venta', color: 'text-green-700' },
-              ]).map(({ key, label, desc, color }) => {
-                const pieces = Math.round((funnelDistribution[key] / 100) * 7)
-                return (
-                  <div key={key} className="rounded-lg border border-border bg-background p-3 space-y-2">
-                    <div>
-                      <p className={`text-xs font-semibold ${color}`}>{label}</p>
-                      <p className="text-[10px] text-muted-foreground">{desc}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={funnelDistribution[key]}
-                        onChange={e => {
-                          const val = Math.min(100, Math.max(0, Number(e.target.value)))
-                          setFunnelDistribution(prev => ({ ...prev, [key]: val }))
-                        }}
-                        className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-bold text-center focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground text-center">≈ {pieces} pieza{pieces !== 1 ? 's' : ''}/producto</p>
-                  </div>
-                )
-              })}
-            </div>
-            {(() => {
-              const total = funnelDistribution.presentacion + funnelDistribution.evaluacion + funnelDistribution.conversion
-              return total !== 100 ? (
-                <p className="text-xs text-amber-600 font-medium text-center">Total actual: {total}% — debe ser exactamente 100%</p>
-              ) : (
-                <p className="text-xs text-green-600 font-medium text-center">✓ Distribución válida</p>
-              )
-            })()}
+          <div>
+            <h2 className="font-semibold text-card-foreground">Configuración del Funnel</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Define la distribución de piezas y canales por etapa del customer journey (debe sumar 100%)</p>
           </div>
 
-          {/* Channels */}
-          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <div>
-              <h2 className="font-semibold text-card-foreground">¿En qué canales publicarán?</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Activa los canales que usará la marca este mes</p>
-            </div>
-            <div className="space-y-1.5">
-              {CHANNELS.map(ch => {
-                const info = CHANNEL_INFO[ch]
-                const active = channelMix.includes(ch)
-                return (
-                  <button
-                    key={ch}
-                    onClick={() => toggleChannel(ch)}
-                    className={`w-full flex items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left transition-all ${
-                      active
-                        ? 'border-foreground/30 bg-foreground/5'
-                        : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/30'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium leading-none mb-0.5 ${active ? 'text-foreground' : 'text-muted-foreground'}`}>{ch}</p>
-                      <p className="text-xs text-muted-foreground">{info.description}</p>
+          {stageConfigs.map(stage => {
+            const meta = STAGE_META[stage.key]
+            const pieces = Math.round((stage.percentage / 100) * totalPieces)
+            return (
+              <div key={stage.key} className={`rounded-xl border ${meta.border} ${meta.bg} p-5 space-y-4`}>
+                {/* Stage header + percentage */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className={`font-semibold text-sm ${meta.textColor}`}>{meta.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{meta.desc}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={stage.percentage}
+                      onChange={e => updateStage(stage.key, { percentage: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                      className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm font-bold text-center focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <span className="text-xs text-muted-foreground ml-1">≈ {pieces} pieza{pieces !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+
+                {/* Channel chips */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Canales</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FUNNEL_CHANNELS.map(ch => {
+                      const active = stage.channels.includes(ch)
+                      return (
+                        <button
+                          key={ch}
+                          onClick={() => toggleStageChannel(stage.key, ch)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition-all border ${
+                            active
+                              ? `${meta.color} border-current`
+                              : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                          }`}
+                        >
+                          {ch}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {stage.percentage > 0 && stage.channels.length === 0 && (
+                    <p className="mt-1.5 text-xs text-amber-600">Selecciona al menos un canal para esta etapa</p>
+                  )}
+                </div>
+
+                {/* Conversion channel selector (only for conversion stage) */}
+                {stage.key === 'conversion' && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Canal de conversión principal</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CONVERSION_CHANNELS.map(cc => {
+                        const active = stage.conversionChannel === cc
+                        return (
+                          <button
+                            key={cc}
+                            onClick={() => updateStage('conversion', { conversionChannel: active ? '' : cc })}
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all border ${
+                              active
+                                ? 'bg-green-600 text-white border-green-600'
+                                : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                            }`}
+                          >
+                            {cc}
+                          </button>
+                        )
+                      })}
                     </div>
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${active ? 'border-foreground bg-foreground' : 'border-muted-foreground/40'}`}>
-                      {active && <Check className="h-3 w-3 text-background" />}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div>
+                  <input
+                    type="text"
+                    placeholder={`Notas para ${meta.label.toLowerCase()} (opcional)`}
+                    value={stage.notes ?? ''}
+                    onChange={e => updateStage(stage.key, { notes: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Total validation */}
+          <div className="text-center">
+            {Math.abs(pctTotal - 100) > 1 ? (
+              <p className="text-xs text-amber-600 font-medium">Total: {pctTotal}% — debe sumar exactamente 100%</p>
+            ) : (
+              <p className="text-xs text-green-600 font-medium">✓ Distribución válida · {totalPieces} piezas totales</p>
+            )}
           </div>
 
           <Button
             onClick={handleGenerateBrief}
-            disabled={generatingBrief || channelMix.length === 0}
+            disabled={generatingBrief}
             className="w-full gap-2"
             size="lg"
           >

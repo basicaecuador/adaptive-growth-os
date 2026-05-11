@@ -87,9 +87,35 @@ export async function POST(
     const counts = distributePieces(PIECES_PER_PRODUCT, dist)
     const totalPieces = numProducts * PIECES_PER_PRODUCT
 
-    const channelList = (plan.channelMix ?? []).join(', ') || 'Instagram'
     const mm = String(plan.month).padStart(2, '0')
     const yy = plan.year
+
+    const stageChannels = dist.stages?.length === 3
+      ? {
+          presentacion: dist.stages[0].channels,
+          evaluacion:   dist.stages[1].channels,
+          conversion:   dist.stages[2].channels,
+          conversionChannel: dist.stages[2].conversionChannel ?? null,
+        }
+      : {
+          presentacion: plan.channelMix ?? [],
+          evaluacion:   plan.channelMix ?? [],
+          conversion:   plan.channelMix ?? [],
+          conversionChannel: null,
+        }
+
+    const allChannels = [...new Set([
+      ...stageChannels.presentacion,
+      ...stageChannels.evaluacion,
+      ...stageChannels.conversion,
+    ])]
+    const channelList = allChannels.join(', ') || 'Instagram'
+
+    const channelsByStageText = [
+      `Presentación: ${stageChannels.presentacion.join(', ') || 'Cualquier canal'}`,
+      `Evaluación: ${stageChannels.evaluacion.join(', ') || 'Cualquier canal'}`,
+      `Conversión: ${stageChannels.conversion.join(', ') || 'Cualquier canal'}${stageChannels.conversionChannel ? ` (cierre principal: ${stageChannels.conversionChannel})` : ''}`,
+    ].join('\n')
 
     const pillars = Array.isArray(brand.puntosClave) && brand.puntosClave.length
       ? brand.puntosClave.join(' · ')
@@ -162,8 +188,10 @@ ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
 ═══ BRIEF ESTRATÉGICO DEL MES ═══
 ${plan.strategicBrief ?? ''}
 
-═══ CANALES ACTIVOS (SOLO estos) ═══
-${channelList}
+═══ CANALES POR ETAPA (SOLO estos, respetar asignación) ═══
+${channelsByStageText}
+
+Canales totales disponibles: ${channelList}
 
 PRODUCTOS:
 ${productsDetail}
@@ -171,9 +199,9 @@ ${productsDetail}
 INSTRUCCIÓN:
 Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
 Por cada producto genera exactamente ${PIECES_PER_PRODUCT} piezas distribuidas en 3 etapas:
-- presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva.
-- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios.
-- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera.
+- presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva. Usa SOLO estos canales: ${stageChannels.presentacion.join(', ') || 'cualquier canal disponible'}.
+- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios. Usa SOLO estos canales: ${stageChannels.evaluacion.join(', ') || 'cualquier canal disponible'}.
+- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera. Usa SOLO estos canales: ${stageChannels.conversion.join(', ') || 'cualquier canal disponible'}.${stageChannels.conversionChannel ? ` El canal de cierre principal es ${stageChannels.conversionChannel} — ajusta los CTAs de conversión a este canal.` : ''}
 
 TOTAL: ${numProducts} producto(s) × ${PIECES_PER_PRODUCT} = ${totalPieces} piezas
 
@@ -236,7 +264,7 @@ REGLAS JSON:
 - idea_type: presentacion→disruptiva | evaluacion→aspiracional | conversion→racional
 - name: 3 palabras máx | cta: 5 palabras máx | kpi: 2 palabras máx
 - higgsfield_prompt: SOLO Reel/Historia — movimiento cámara + atmósfera + luz ("" para el resto)
-- channel: SOLO de la lista activa
+- channel: SOLO del canal asignado a esa etapa del funnel (ver "CANALES POR ETAPA")
 
 JSON — solo el array sin markdown:
 [{"product":"nombre producto","funnel_stage":"presentacion","temporality":"Sem 1 — ${monthName} 3","scheduled_date":"${yy}-${mm}-03","channel":"Instagram","target_emotion":"Curiosidad","idea_type":"disruptiva","format":"Reel","content_category":"social","production_type":"video_grabado","conversion_channel":null,"target_audience":null,"name":"Tres palabras concepto","limiting_belief":"Es muy caro para lo que hace","motivator":"Verse profesional sin gastar una fortuna","creative_reference":"Meta Creative directo","native_resource":"Talking head creator","hook_options":[{"type":"visual","text":"Primer plano manos sosteniendo producto inesperado","why":"El movimiento fuerza el pause"},{"type":"texto","text":"Esto nadie te lo dice.","why":"Activa curiosidad y FOMO"},{"type":"trending","text":"POV: encontraste lo que buscabas","why":"Formato POV tiene alto engagement"}],"selected_hook_type":"texto","selected_hook_reason":"La promesa de secreto genera más clicks en presentación","hook":"Esto nadie te lo dice.","higgsfield_prompt":"Zoom rápido a rostro sorprendido, luz lateral dramática, fondo desenfocado","alternate_ctas":[],"content":"HOOK TYPE: texto\\nAUDIO: música tensa que corta al silencio en ESC2\\nESC1 (3s): Visual:[primer plano producto] | Voz:[¿Cuánto tiempo llevas buscando esto?] | Pantalla:[Esto nadie te lo dice.]\\nESC2 (12s): Visual:[demo en acción] | Voz:[Con X logras Y en Z días] | Pantalla:[Beneficio principal]\\nESC3 (5s): Visual:[resultado + logo] | Voz:[Empieza hoy] | Pantalla:[Escríbenos ahora →]\\nDURACIÓN: 20s | MOMENTO: Pitch\\nSHAREABILITY: dato sorprendente que querrán reenviar","cta":"Escríbenos hoy mismo","kpi":"Reproducciones"}]`

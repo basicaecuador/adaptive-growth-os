@@ -58,6 +58,19 @@ export async function POST(
     const ePieces = Math.round(piecesCount * ePct / 100)
     const cPieces = piecesCount - pPieces - ePieces
 
+    const stages = dist.stages
+    const stageLines = stages?.length === 3
+      ? [
+          `- Presentación: ${pPieces} piezas (${pPct}%) | Canales: ${stages[0].channels.join(', ') || 'No especificados'}${stages[0].notes ? ` | Notas: ${stages[0].notes}` : ''}`,
+          `- Evaluación: ${ePieces} piezas (${ePct}%) | Canales: ${stages[1].channels.join(', ') || 'No especificados'}${stages[1].notes ? ` | Notas: ${stages[1].notes}` : ''}`,
+          `- Conversión: ${cPieces} piezas (${cPct}%) | Canales: ${stages[2].channels.join(', ') || 'No especificados'}${stages[2].conversionChannel ? ` | Canal de cierre: ${stages[2].conversionChannel}` : ''}${stages[2].notes ? ` | Notas: ${stages[2].notes}` : ''}`,
+        ].join('\n')
+      : `- Presentación: ${pPieces} piezas (${pPct}%)\n- Evaluación: ${ePieces} piezas (${ePct}%)\n- Conversión: ${cPieces} piezas (${cPct}%) | Canales: ${channelMix.join(', ') || 'No especificados'}`
+
+    const channelMixByStage = stages?.length === 3
+      ? stages.flatMap(s => s.channels).filter((v, i, a) => a.indexOf(v) === i)
+      : channelMix
+
     const productsText = plan.products.map((p, idx) => {
       const lines = [`${idx + 1}. **${p.name}** — ${p.description}`]
       if (p.objective) lines.push(`   Objetivo: ${p.objective}`)
@@ -108,9 +121,9 @@ Productos/servicios a promover:
 ${productsText}
 ${audiencesText ? `\n## AUDIENCIAS OBJETIVO\n${audiencesText}\n` : ''}
 ## PARÁMETROS ESTRATÉGICOS
-- Canales seleccionados: ${channelMix.join(', ') || 'No especificados'}
-- Distribución del funnel: Presentación ${pPct}% (${pPieces} piezas) · Evaluación ${ePct}% (${ePieces} piezas) · Conversión ${cPct}% (${cPieces} piezas)
 - Volumen objetivo: ${piecesCount} piezas de contenido
+- Distribución del funnel por etapa:
+${stageLines}
 
 ## FECHAS RELEVANTES EN ECUADOR — ${monthName}
 ${ecuadorDates}
@@ -123,9 +136,9 @@ Genera un brief estratégico para este mes. El brief debe ser conciso, orientado
 
 ### Distribución del funnel
 Justifica la distribución de ${piecesCount} piezas en las 3 etapas del customer journey:
-- Presentación: ${pPieces} piezas — [razón: a quién presentamos el producto y por qué esta proporción]
-- Evaluación: ${ePieces} piezas — [razón: qué argumentos construimos para el prospecto en evaluación]
-- Conversión: ${cPieces} piezas — [razón: por qué este volumen de conversión tiene sentido para este mes]
+- Presentación: ${pPieces} piezas — [razón táctica + qué canales se usarán]
+- Evaluación: ${ePieces} piezas — [razón táctica + qué argumentos construimos]
+- Conversión: ${cPieces} piezas — [razón táctica + canal de cierre elegido y por qué]
 
 ### Ejes temáticos
 Los 3-4 grandes temas que deben dominar el mes. Cada eje conecta la marca con algo relevante para la audiencia.
@@ -138,7 +151,7 @@ Los 3-4 grandes temas que deben dominar el mes. Cada eje conecta la marca con al
 [2-4 fechas o momentos específicos del mes con una idea de acción concreta. Solo los que realmente aplican a esta marca.]
 
 ### Mix por canal
-${channelMix.map(ch => `- **${ch}**: [número] piezas — [tipos de contenido recomendados y etapa principal]`).join('\n')}
+${channelMixByStage.map(ch => `- **${ch}**: [número] piezas — [tipos de contenido recomendados y etapa principal]`).join('\n')}
 
 ### Psicología de la audiencia objetivo
 La materia prima emocional del mes — lo que la audiencia cree, teme y desea en relación a esta marca y sus productos.

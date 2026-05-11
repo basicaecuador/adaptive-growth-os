@@ -87,10 +87,19 @@ export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retent
 
 export type FunnelStageV2 = 'presentacion' | 'evaluacion' | 'conversion'
 
+export interface FunnelStageConfig {
+  key: 'presentacion' | 'evaluacion' | 'conversion'
+  percentage: number
+  channels: string[]
+  notes?: string
+  conversionChannel?: string
+}
+
 export interface FunnelDistribution {
   presentacion: number
   evaluacion: number
   conversion: number
+  stages?: FunnelStageConfig[]
 }
 
 export interface PlanAudience {
