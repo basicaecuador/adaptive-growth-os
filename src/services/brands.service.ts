@@ -104,25 +104,33 @@ type BrandDetailRow = {
   logo_url: string | null
   font_url: string | null
   primary_color: string | null
-  voice: string | null
-  tone: string | null
-  target_audience: string | null
   value_proposition: string | null
-  content_pillars: string[] | null
-  restrictions: string[] | null
   monthly_pieces_limit: number | null
+  descripcion: string | null
+  concepto_comunicacional: string | null
+  mandatorios_generales: string[] | null
+  puntos_clave: string[] | null
+  tono_estilo: string | null
+  redes_disponibles: string[] | null
+  competidores: string[] | null
+  fechas_importantes: string[] | null
   updated_at: string
 }
+
+const BRAND_DETAIL_SELECT = 'id, name, slug, logo_url, font_url, primary_color, value_proposition, monthly_pieces_limit, descripcion, concepto_comunicacional, mandatorios_generales, puntos_clave, tono_estilo, redes_disponibles, competidores, fechas_importantes, updated_at'
 
 function toSetup(row: BrandDetailRow): BrandSetup {
   return {
     brandId: row.id,
-    voice: row.voice ?? '',
-    tone: row.tone ?? '',
-    targetAudience: row.target_audience ?? '',
+    descripcion: row.descripcion ?? '',
+    conceptoComunicacional: row.concepto_comunicacional ?? '',
+    mandatoriosGenerales: row.mandatorios_generales ?? [],
     valueProposition: row.value_proposition ?? '',
-    contentPillars: row.content_pillars ?? [],
-    restrictions: row.restrictions ?? [],
+    puntosClave: row.puntos_clave ?? [],
+    tonoEstilo: row.tono_estilo ?? '',
+    redesDisponibles: row.redes_disponibles ?? [],
+    competidores: row.competidores ?? [],
+    fechasImportantes: row.fechas_importantes ?? [],
     monthlyPiecesLimit: row.monthly_pieces_limit ?? undefined,
     updatedAt: new Date(row.updated_at),
   }
@@ -134,7 +142,7 @@ export async function getBrandWithSetup(
 ): Promise<{ id: string; name: string; slug: string; logoUrl: string | null; fontUrl: string | null; primaryColor: string } & BrandSetup> {
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, logo_url, font_url, primary_color, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
+    .select(BRAND_DETAIL_SELECT)
     .eq('id', brandId)
     .single()
   if (error) throw new Error(error.message)
@@ -156,7 +164,7 @@ export async function getBrandSetup(
 ): Promise<BrandSetup | null> {
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
+    .select(BRAND_DETAIL_SELECT)
     .eq('id', brandId)
     .single()
   if (error) throw new Error(error.message)
@@ -170,17 +178,20 @@ export async function upsertBrandSetup(
   const { data, error } = await supabase
     .from('brands')
     .update({
-      voice: setup.voice,
-      tone: setup.tone,
-      target_audience: setup.targetAudience,
       value_proposition: setup.valueProposition,
-      content_pillars: setup.contentPillars,
-      restrictions: setup.restrictions,
       monthly_pieces_limit: setup.monthlyPiecesLimit ?? null,
+      descripcion: setup.descripcion,
+      concepto_comunicacional: setup.conceptoComunicacional,
+      mandatorios_generales: setup.mandatoriosGenerales,
+      puntos_clave: setup.puntosClave,
+      tono_estilo: setup.tonoEstilo,
+      redes_disponibles: setup.redesDisponibles,
+      competidores: setup.competidores,
+      fechas_importantes: setup.fechasImportantes,
       updated_at: new Date().toISOString(),
     })
     .eq('id', setup.brandId)
-    .select('id, name, slug, voice, tone, target_audience, value_proposition, content_pillars, restrictions, monthly_pieces_limit, updated_at')
+    .select(BRAND_DETAIL_SELECT)
     .single()
   if (error) throw new Error(error.message)
   return toSetup(data as BrandDetailRow)

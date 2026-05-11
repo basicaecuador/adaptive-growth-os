@@ -58,8 +58,7 @@ export async function POST(
     const prompt = `Eres copywriter senior especializado en redes sociales para Ecuador y Latinoamérica.
 
 MARCA: ${brand.name}
-Voz: ${brand.voice || 'N/A'} | Tono: ${brand.tone || 'N/A'}
-Audiencia: ${brand.targetAudience || 'N/A'}
+Tono y estilo: ${brand.tonoEstilo || 'N/A'}
 Propuesta de valor: ${brand.valueProposition || 'N/A'}
 MES: ${monthName} ${plan.year}
 

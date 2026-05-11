@@ -84,6 +84,14 @@ export interface Database {
           content_pillars: string[] | null
           restrictions: string[] | null
           monthly_pieces_limit: number | null
+          descripcion: string | null
+          concepto_comunicacional: string | null
+          mandatorios_generales: string[] | null
+          puntos_clave: string[] | null
+          tono_estilo: string | null
+          redes_disponibles: string[] | null
+          competidores: string[] | null
+          fechas_importantes: string[] | null
           created_at: string
           updated_at: string
         }
@@ -103,6 +111,14 @@ export interface Database {
           content_pillars?: string[] | null
           restrictions?: string[] | null
           monthly_pieces_limit?: number | null
+          descripcion?: string | null
+          concepto_comunicacional?: string | null
+          mandatorios_generales?: string[] | null
+          puntos_clave?: string[] | null
+          tono_estilo?: string | null
+          redes_disponibles?: string[] | null
+          competidores?: string[] | null
+          fechas_importantes?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -122,6 +138,14 @@ export interface Database {
           content_pillars?: string[] | null
           restrictions?: string[] | null
           monthly_pieces_limit?: number | null
+          descripcion?: string | null
+          concepto_comunicacional?: string | null
+          mandatorios_generales?: string[] | null
+          puntos_clave?: string[] | null
+          tono_estilo?: string | null
+          redes_disponibles?: string[] | null
+          competidores?: string[] | null
+          fechas_importantes?: string[] | null
           created_at?: string
           updated_at?: string
         }

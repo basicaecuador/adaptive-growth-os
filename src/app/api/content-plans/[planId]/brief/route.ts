@@ -84,12 +84,14 @@ export async function POST(
 
 ## MARCA
 - Nombre: ${brand.name}
-- Voz: ${brand.voice || 'No definida'}
-- Tono: ${brand.tone || 'No definido'}
-- Audiencia base: ${brand.targetAudience || 'No definida'}
+- Descripción: ${brand.descripcion || 'No definida'}
+- Concepto comunicacional: ${brand.conceptoComunicacional || 'No definido'}
 - Propuesta de valor: ${brand.valueProposition || 'No definida'}
-- Pilares de contenido: ${brand.contentPillars?.join(', ') || 'No definidos'}
-- Restricciones: ${brand.restrictions?.join(', ') || 'Ninguna'}
+- Tono y estilo: ${brand.tonoEstilo || 'No definido'}
+- Puntos clave de comunicación: ${brand.puntosClave?.join(', ') || 'No definidos'}
+- Mandatorios generales: ${brand.mandatoriosGenerales?.join(', ') || 'Ninguno'}
+- Canales disponibles: ${brand.redesDisponibles?.join(', ') || 'No especificados'}
+- Competidores: ${brand.competidores?.join(', ') || 'No especificados'}
 
 ## PLAN DE ${monthName.toUpperCase()} ${plan.year}
 ${plan.context ? `Contexto de negocio: ${plan.context}\n` : ''}

@@ -5,9 +5,8 @@ import type { ContentGenerationInput } from '@/types/domain'
 export function buildGenerateCaptionPrompt(input: ContentGenerationInput): string {
   return `${buildSystemBase({
     name: input.brand.name,
-    voice: input.setup.voice,
-    tone: input.setup.tone,
-    targetAudience: input.setup.targetAudience,
+    descripcion: input.setup.descripcion,
+    tonoEstilo: input.setup.tonoEstilo,
     valueProposition: input.setup.valueProposition,
   })}
 

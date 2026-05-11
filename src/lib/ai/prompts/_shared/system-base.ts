@@ -1,18 +1,16 @@
 interface BrandContext {
   name: string
-  voice: string
-  tone: string
-  targetAudience: string
+  tonoEstilo?: string
   valueProposition: string
+  descripcion?: string
 }
 
 export function buildSystemBase(brand: BrandContext): string {
   return `You are a specialized content creation assistant for ${brand.name}.
 
 BRAND PROFILE:
-- Voice: ${brand.voice}
-- Tone: ${brand.tone}
-- Target audience: ${brand.targetAudience}
+- Description: ${brand.descripcion || 'N/A'}
+- Tone & style: ${brand.tonoEstilo || 'N/A'}
 - Value proposition: ${brand.valueProposition}
 
 CORE INSTRUCTIONS:

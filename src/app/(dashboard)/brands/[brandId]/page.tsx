@@ -25,9 +25,9 @@ interface Props {
   params: Promise<{ brandId: string }>
 }
 
-const VOICE_PRESETS = ['Cercana', 'Experta', 'Innovadora', 'Directa', 'Inspiradora', 'Educativa', 'Audaz', 'Empática']
-const TONE_PRESETS = ['Profesional', 'Conversacional', 'Motivador', 'Informativo', 'Divertido', 'Formal', 'Empático', 'Urgente']
-const PILLAR_SUGGESTIONS = ['Educación', 'Tendencias', 'Casos de éxito', 'Detrás de escena', 'Producto', 'Comunidad', 'Inspiración', 'Tips prácticos']
+const TONO_PRESETS = ['Profesional', 'Conversacional', 'Motivador', 'Informativo', 'Divertido', 'Formal', 'Empático', 'Directo', 'Cercano', 'Experto', 'Audaz', 'Inspirador']
+
+const REDES_PRESETS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'YouTube', 'X (Twitter)', 'WhatsApp', 'Google Ads', 'Meta Ads', 'Email']
 
 function PresetChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -46,20 +46,67 @@ function PresetChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
+function TagInput({
+  values,
+  onChange,
+  placeholder,
+}: {
+  values: string[]
+  onChange: (v: string[]) => void
+  placeholder: string
+}) {
+  const [input, setInput] = useState('')
+
+  function add() {
+    const val = input.trim()
+    if (val && !values.includes(val)) onChange([...values, val])
+    setInput('')
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Input
+          placeholder={placeholder}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        />
+        <Button type="button" variant="outline" size="icon" onClick={add}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {values.map(v => (
+            <Badge key={v} variant="secondary" className="gap-1.5 pr-1">
+              {v}
+              <button onClick={() => onChange(values.filter(x => x !== v))} className="rounded-full hover:bg-muted">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BrandSetupPage({ params }: Props) {
   const { brandId } = use(params)
   const { data: brand, isLoading } = useBrandDetail(brandId)
   const invalidateBrand = useInvalidateBrandDetail(brandId)
 
-  const [voice, setVoice] = useState('')
-  const [tone, setTone] = useState('')
-  const [targetAudience, setTargetAudience] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [conceptoComunicacional, setConceptoComunicacional] = useState('')
   const [valueProposition, setValueProposition] = useState('')
-  const [contentPillars, setContentPillars] = useState<string[]>([])
-  const [restrictions, setRestrictions] = useState<string[]>([])
+  const [tonoEstilo, setTonoEstilo] = useState('')
+  const [puntosClave, setPuntosClave] = useState<string[]>([])
+  const [mandatoriosGenerales, setMandatoriosGenerales] = useState<string[]>([])
+  const [redesDisponibles, setRedesDisponibles] = useState<string[]>([])
+  const [competidores, setCompetidores] = useState<string[]>([])
+  const [fechasImportantes, setFechasImportantes] = useState<string[]>([])
   const [monthlyPiecesLimit, setMonthlyPiecesLimit] = useState<number | ''>('')
-  const [pillarInput, setPillarInput] = useState('')
-  const [restrictionInput, setRestrictionInput] = useState('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [fontUrl, setFontUrl] = useState<string | null>(null)
   const [fontName, setFontName] = useState('')
@@ -109,12 +156,15 @@ export default function BrandSetupPage({ params }: Props) {
 
   useEffect(() => {
     if (!brand) return
-    setVoice(brand.voice ?? '')
-    setTone(brand.tone ?? '')
-    setTargetAudience(brand.targetAudience ?? '')
+    setDescripcion(brand.descripcion ?? '')
+    setConceptoComunicacional(brand.conceptoComunicacional ?? '')
     setValueProposition(brand.valueProposition ?? '')
-    setContentPillars(brand.contentPillars ?? [])
-    setRestrictions(brand.restrictions ?? [])
+    setTonoEstilo(brand.tonoEstilo ?? '')
+    setPuntosClave(brand.puntosClave ?? [])
+    setMandatoriosGenerales(brand.mandatoriosGenerales ?? [])
+    setRedesDisponibles(brand.redesDisponibles ?? [])
+    setCompetidores(brand.competidores ?? [])
+    setFechasImportantes(brand.fechasImportantes ?? [])
     setMonthlyPiecesLimit(brand.monthlyPiecesLimit ?? '')
     setLogoUrl(brand.logoUrl ?? null)
     setFontUrl(brand.fontUrl ?? null)
@@ -123,12 +173,12 @@ export default function BrandSetupPage({ params }: Props) {
   }, [brand])
 
   const completionFields = [
-    !!voice.trim(),
-    !!tone.trim(),
-    !!targetAudience.trim(),
+    !!descripcion.trim(),
+    !!conceptoComunicacional.trim(),
     !!valueProposition.trim(),
-    contentPillars.length > 0,
-    restrictions.length > 0,
+    !!tonoEstilo.trim(),
+    puntosClave.length > 0,
+    redesDisponibles.length > 0,
     !!logoUrl,
   ]
   const completionCount = completionFields.filter(Boolean).length
@@ -191,25 +241,25 @@ export default function BrandSetupPage({ params }: Props) {
     }
   }
 
-  function addPillar() {
-    const val = pillarInput.trim()
-    if (val && !contentPillars.includes(val)) setContentPillars(prev => [...prev, val])
-    setPillarInput('')
-  }
-
-  function addRestriction() {
-    const val = restrictionInput.trim()
-    if (val && !restrictions.includes(val)) setRestrictions(prev => [...prev, val])
-    setRestrictionInput('')
-  }
-
   async function handleSave() {
     setIsSaving(true)
     try {
       const res = await fetch(`/api/brands/${brandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice, tone, targetAudience, valueProposition, contentPillars, restrictions, primaryColor, monthlyPiecesLimit: monthlyPiecesLimit === '' ? undefined : monthlyPiecesLimit }),
+        body: JSON.stringify({
+          descripcion,
+          conceptoComunicacional,
+          valueProposition,
+          tonoEstilo,
+          puntosClave,
+          mandatoriosGenerales,
+          redesDisponibles,
+          competidores,
+          fechasImportantes,
+          primaryColor,
+          monthlyPiecesLimit: monthlyPiecesLimit === '' ? undefined : monthlyPiecesLimit,
+        }),
       })
       if (!res.ok) throw new Error('Error al guardar')
       invalidateBrand()
@@ -308,10 +358,10 @@ export default function BrandSetupPage({ params }: Props) {
 
       <div className="space-y-5">
 
-        {/* Strategy — highest AI impact */}
+        {/* Identidad de marca */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-card-foreground">Estrategia de marca</h2>
+            <h2 className="font-semibold text-card-foreground">Identidad de marca</h2>
             <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-400">
               <Sparkles className="h-3 w-3" />
               Mayor impacto en IA
@@ -319,12 +369,23 @@ export default function BrandSetupPage({ params }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="audience">Audiencia objetivo</Label>
+            <Label htmlFor="descripcion">Descripción de la marca</Label>
             <Textarea
-              id="audience"
-              placeholder="Ej: Emprendedores latinoamericanos de 25-40 años que buscan escalar su negocio digital. Con conocimiento básico de marketing pero sin equipo técnico."
-              value={targetAudience}
-              onChange={e => setTargetAudience(e.target.value)}
+              id="descripcion"
+              placeholder="¿Qué es esta marca? ¿A qué se dedica? Descríbela en 2-3 oraciones claras."
+              value={descripcion}
+              onChange={e => setDescripcion(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="concepto">Concepto comunicacional</Label>
+            <Textarea
+              id="concepto"
+              placeholder="El posicionamiento central que debe atravesar toda la comunicación. Ej: 'La marca que convierte el esfuerzo en resultados reales'."
+              value={conceptoComunicacional}
+              onChange={e => setConceptoComunicacional(e.target.value)}
               rows={3}
             />
           </div>
@@ -333,7 +394,7 @@ export default function BrandSetupPage({ params }: Props) {
             <Label htmlFor="value">Propuesta de valor</Label>
             <Textarea
               id="value"
-              placeholder="¿Qué problema resuelve esta marca, para quién, y cómo lo hace diferente a la competencia?"
+              placeholder="¿Qué problema resuelve, para quién, y cómo lo hace diferente a la competencia?"
               value={valueProposition}
               onChange={e => setValueProposition(e.target.value)}
               rows={3}
@@ -341,123 +402,98 @@ export default function BrandSetupPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Voice & tone with presets */}
+        {/* Comunicación */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-          <h2 className="font-semibold text-card-foreground">Voz y tono</h2>
+          <h2 className="font-semibold text-card-foreground">Comunicación</h2>
 
           <div className="space-y-3">
-            <Label htmlFor="voice">Voz de marca</Label>
+            <Label htmlFor="tono">Tono y estilo de comunicación</Label>
             <Input
-              id="voice"
-              placeholder="Ej: cercana, experta, innovadora"
-              value={voice}
-              onChange={e => setVoice(e.target.value)}
+              id="tono"
+              placeholder="Ej: Profesional, cercano, directo"
+              value={tonoEstilo}
+              onChange={e => setTonoEstilo(e.target.value)}
             />
             <div className="flex flex-wrap gap-1.5">
-              {VOICE_PRESETS.map(preset => (
+              {TONO_PRESETS.map(preset => (
                 <PresetChip
                   key={preset}
                   label={preset}
-                  active={getActivePresets(voice).some(p => p.toLowerCase() === preset.toLowerCase())}
-                  onClick={() => togglePreset(voice, preset, setVoice)}
+                  active={getActivePresets(tonoEstilo).some(p => p.toLowerCase() === preset.toLowerCase())}
+                  onClick={() => togglePreset(tonoEstilo, preset, setTonoEstilo)}
                 />
               ))}
             </div>
           </div>
 
-          <div className="space-y-3">
-            <Label htmlFor="tone">Tono</Label>
-            <Input
-              id="tone"
-              placeholder="Ej: profesional pero amigable, directo, inspirador"
-              value={tone}
-              onChange={e => setTone(e.target.value)}
+          <div className="space-y-2">
+            <Label>Puntos clave de comunicación</Label>
+            <p className="text-xs text-muted-foreground">Los mensajes o argumentos que siempre deben estar presentes.</p>
+            <TagInput
+              values={puntosClave}
+              onChange={setPuntosClave}
+              placeholder="Agregar punto clave..."
             />
-            <div className="flex flex-wrap gap-1.5">
-              {TONE_PRESETS.map(preset => (
+          </div>
+
+          <div className="space-y-2">
+            <Label>Mandatorios generales de comunicación</Label>
+            <p className="text-xs text-muted-foreground">Elementos que DEBEN aparecer en toda comunicación (disclaimers, claims, hashtags, etc.).</p>
+            <TagInput
+              values={mandatoriosGenerales}
+              onChange={setMandatoriosGenerales}
+              placeholder="Agregar mandatorio..."
+            />
+          </div>
+        </div>
+
+        {/* Canales y mercado */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+          <h2 className="font-semibold text-card-foreground">Canales y mercado</h2>
+
+          <div className="space-y-3">
+            <Label>Redes o canales disponibles</Label>
+            <p className="text-xs text-muted-foreground">Los canales activos donde esta marca publica o pauta.</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {REDES_PRESETS.map(red => (
                 <PresetChip
-                  key={preset}
-                  label={preset}
-                  active={getActivePresets(tone).some(p => p.toLowerCase() === preset.toLowerCase())}
-                  onClick={() => togglePreset(tone, preset, setTone)}
+                  key={red}
+                  label={red}
+                  active={redesDisponibles.includes(red)}
+                  onClick={() =>
+                    redesDisponibles.includes(red)
+                      ? setRedesDisponibles(prev => prev.filter(r => r !== red))
+                      : setRedesDisponibles(prev => [...prev, red])
+                  }
                 />
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Content pillars */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div>
-            <h2 className="font-semibold text-card-foreground">Pilares de contenido</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Los grandes temas sobre los que esta marca comunica.</p>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Agregar pilar..."
-              value={pillarInput}
-              onChange={e => setPillarInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPillar() } }}
+            <TagInput
+              values={redesDisponibles.filter(r => !REDES_PRESETS.includes(r))}
+              onChange={extras => setRedesDisponibles([...redesDisponibles.filter(r => REDES_PRESETS.includes(r)), ...extras])}
+              placeholder="Otro canal..."
             />
-            <Button type="button" variant="outline" size="icon" onClick={addPillar}><Plus className="h-4 w-4" /></Button>
           </div>
-          {contentPillars.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {contentPillars.map(p => (
-                <Badge key={p} variant="secondary" className="gap-1.5 pr-1">
-                  {p}
-                  <button onClick={() => setContentPillars(prev => prev.filter(x => x !== p))} className="rounded-full hover:bg-muted">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-[11px] text-muted-foreground">Sugerencias:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {PILLAR_SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setContentPillars(prev => prev.includes(s) ? prev : [...prev, s])}
-                    className="rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors"
-                  >
-                    + {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
 
-        {/* Restrictions */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div>
-            <h2 className="font-semibold text-card-foreground">Restricciones</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Temas, palabras o estilos que la marca debe evitar.</p>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Agregar restricción..."
-              value={restrictionInput}
-              onChange={e => setRestrictionInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRestriction() } }}
+          <div className="space-y-2">
+            <Label>Competidores</Label>
+            <p className="text-xs text-muted-foreground">Marcas o productos contra quienes compite directamente.</p>
+            <TagInput
+              values={competidores}
+              onChange={setCompetidores}
+              placeholder="Agregar competidor..."
             />
-            <Button type="button" variant="outline" size="icon" onClick={addRestriction}><Plus className="h-4 w-4" /></Button>
           </div>
-          {restrictions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {restrictions.map(r => (
-                <Badge key={r} variant="secondary" className="gap-1.5 pr-1">
-                  {r}
-                  <button onClick={() => setRestrictions(prev => prev.filter(x => x !== r))} className="rounded-full hover:bg-muted">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
+
+          <div className="space-y-2">
+            <Label>Fechas importantes</Label>
+            <p className="text-xs text-muted-foreground">Fechas clave propias de la marca: aniversario, temporadas, lanzamientos recurrentes.</p>
+            <TagInput
+              values={fechasImportantes}
+              onChange={setFechasImportantes}
+              placeholder="Ej: 15 mar — Aniversario de la marca"
+            />
+          </div>
         </div>
 
         {/* Plan mensual contratado */}

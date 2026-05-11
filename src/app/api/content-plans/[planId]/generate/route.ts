@@ -91,8 +91,8 @@ export async function POST(
     const mm = String(plan.month).padStart(2, '0')
     const yy = plan.year
 
-    const pillars = Array.isArray(brand.contentPillars) && brand.contentPillars.length
-      ? brand.contentPillars.join(' · ')
+    const pillars = Array.isArray(brand.puntosClave) && brand.puntosClave.length
+      ? brand.puntosClave.join(' · ')
       : null
 
     const productsDetail = products.map((p, i) => {
@@ -127,12 +127,13 @@ export async function POST(
 
 ═══ MARCA ═══
 Nombre: ${brand.name}
-Voz: ${brand.voice || 'N/A'}
-Tono: ${brand.tone || 'N/A'}
-Audiencia objetivo: ${brand.targetAudience || 'N/A'}
+Descripción: ${brand.descripcion || 'N/A'}
+Concepto comunicacional: ${brand.conceptoComunicacional || 'N/A'}
 Propuesta de valor: ${brand.valueProposition || 'N/A'}
-${pillars ? `Pilares de contenido: ${pillars}` : ''}
-${brand.restrictions ? `Restricciones / Lo que NO hacer: ${brand.restrictions}` : ''}
+Tono y estilo: ${brand.tonoEstilo || 'N/A'}
+${pillars ? `Puntos clave: ${pillars}` : ''}
+${brand.mandatoriosGenerales?.length ? `Mandatorios (siempre incluir): ${brand.mandatoriosGenerales.join(' / ')}` : ''}
+${brand.competidores?.length ? `Competidores: ${brand.competidores.join(', ')}` : ''}
 ${audiencesSection}
 ═══ MES ═══
 ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}

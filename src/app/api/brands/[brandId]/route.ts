@@ -40,12 +40,15 @@ export async function PATCH(
 
     const setup = await upsertBrandSetup(db, {
       brandId,
-      voice: body.voice ?? '',
-      tone: body.tone ?? '',
-      targetAudience: body.targetAudience ?? '',
+      descripcion: body.descripcion ?? '',
+      conceptoComunicacional: body.conceptoComunicacional ?? '',
+      mandatoriosGenerales: body.mandatoriosGenerales ?? [],
       valueProposition: body.valueProposition ?? '',
-      contentPillars: body.contentPillars ?? [],
-      restrictions: body.restrictions ?? [],
+      puntosClave: body.puntosClave ?? [],
+      tonoEstilo: body.tonoEstilo ?? '',
+      redesDisponibles: body.redesDisponibles ?? [],
+      competidores: body.competidores ?? [],
+      fechasImportantes: body.fechasImportantes ?? [],
       monthlyPiecesLimit: typeof body.monthlyPiecesLimit === 'number' ? body.monthlyPiecesLimit : undefined,
       updatedAt: new Date(),
     })

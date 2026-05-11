@@ -48,12 +48,15 @@ export interface Brand {
 
 export interface BrandSetup {
   brandId: string
-  voice: string
-  tone: string
-  targetAudience: string
+  descripcion: string
+  conceptoComunicacional: string
+  mandatoriosGenerales: string[]
   valueProposition: string
-  contentPillars: string[]
-  restrictions: string[]
+  puntosClave: string[]
+  tonoEstilo: string
+  redesDisponibles: string[]
+  competidores: string[]
+  fechasImportantes: string[]
   monthlyPiecesLimit?: number
   updatedAt: Date
 }
