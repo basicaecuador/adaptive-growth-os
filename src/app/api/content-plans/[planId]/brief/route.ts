@@ -90,8 +90,16 @@ export async function POST(
 - Tono y estilo: ${brand.tonoEstilo || 'No definido'}
 - Puntos clave de comunicación: ${brand.puntosClave?.join(', ') || 'No definidos'}
 - Mandatorios generales: ${brand.mandatoriosGenerales?.join(', ') || 'Ninguno'}
-- Canales disponibles: ${brand.redesDisponibles?.join(', ') || 'No especificados'}
+- Canales disponibles: ${brand.redesDisponibles?.map((r: { red: string; usuario: string }) => r.usuario ? `${r.red} (${r.usuario})` : r.red).join(', ') || 'No especificados'}
 - Competidores: ${brand.competidores?.join(', ') || 'No especificados'}
+${brand.audienciasMarca?.length ? `\n## AUDIENCIAS DE LA MARCA\n${brand.audienciasMarca.map((a: { name: string; description?: string; beliefs?: string[]; pains?: string[]; jtbd?: string[] }, idx: number) => {
+  const lines = [`${idx + 1}. **${a.name}**`]
+  if (a.description) lines.push(`   ${a.description}`)
+  if (a.beliefs?.length) lines.push(`   Creencias: ${a.beliefs.join(' · ')}`)
+  if (a.pains?.length) lines.push(`   Dolores: ${a.pains.join(' · ')}`)
+  if (a.jtbd?.length) lines.push(`   Quieren lograr: ${a.jtbd.join(' · ')}`)
+  return lines.join('\n')
+}).join('\n\n')}` : ''}
 
 ## PLAN DE ${monthName.toUpperCase()} ${plan.year}
 ${plan.context ? `Contexto de negocio: ${plan.context}\n` : ''}

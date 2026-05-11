@@ -49,6 +49,7 @@ export async function PATCH(
       redesDisponibles: body.redesDisponibles ?? [],
       competidores: body.competidores ?? [],
       fechasImportantes: body.fechasImportantes ?? [],
+      audienciasMarca: body.audienciasMarca ?? [],
       monthlyPiecesLimit: typeof body.monthlyPiecesLimit === 'number' ? body.monthlyPiecesLimit : undefined,
       updatedAt: new Date(),
     })

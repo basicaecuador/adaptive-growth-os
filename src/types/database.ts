@@ -89,9 +89,10 @@ export interface Database {
           mandatorios_generales: string[] | null
           puntos_clave: string[] | null
           tono_estilo: string | null
-          redes_disponibles: string[] | null
+          redes_disponibles: Json | null
           competidores: string[] | null
           fechas_importantes: string[] | null
+          audiencias_marca: Json | null
           created_at: string
           updated_at: string
         }
@@ -116,9 +117,10 @@ export interface Database {
           mandatorios_generales?: string[] | null
           puntos_clave?: string[] | null
           tono_estilo?: string | null
-          redes_disponibles?: string[] | null
+          redes_disponibles?: Json | null
           competidores?: string[] | null
           fechas_importantes?: string[] | null
+          audiencias_marca?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -143,9 +145,10 @@ export interface Database {
           mandatorios_generales?: string[] | null
           puntos_clave?: string[] | null
           tono_estilo?: string | null
-          redes_disponibles?: string[] | null
+          redes_disponibles?: Json | null
           competidores?: string[] | null
           fechas_importantes?: string[] | null
+          audiencias_marca?: Json | null
           created_at?: string
           updated_at?: string
         }

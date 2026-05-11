@@ -46,6 +46,11 @@ export interface Brand {
   updatedAt: Date
 }
 
+export interface BrandRed {
+  red: string
+  usuario: string
+}
+
 export interface BrandSetup {
   brandId: string
   descripcion: string
@@ -54,9 +59,10 @@ export interface BrandSetup {
   valueProposition: string
   puntosClave: string[]
   tonoEstilo: string
-  redesDisponibles: string[]
+  redesDisponibles: BrandRed[]
   competidores: string[]
   fechasImportantes: string[]
+  audienciasMarca: PlanAudience[]
   monthlyPiecesLimit?: number
   updatedAt: Date
 }

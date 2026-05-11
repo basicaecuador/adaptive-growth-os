@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Brand, BrandSetup } from '@/types/domain'
+import type { Brand, BrandSetup, BrandRed, PlanAudience } from '@/types/domain'
 import type { CreateBrandRequest, UpdateBrandRequest } from '@/types/api'
 
 type BrandRow = {
@@ -111,13 +111,14 @@ type BrandDetailRow = {
   mandatorios_generales: string[] | null
   puntos_clave: string[] | null
   tono_estilo: string | null
-  redes_disponibles: string[] | null
+  redes_disponibles: unknown
   competidores: string[] | null
   fechas_importantes: string[] | null
+  audiencias_marca: unknown
   updated_at: string
 }
 
-const BRAND_DETAIL_SELECT = 'id, name, slug, logo_url, font_url, primary_color, value_proposition, monthly_pieces_limit, descripcion, concepto_comunicacional, mandatorios_generales, puntos_clave, tono_estilo, redes_disponibles, competidores, fechas_importantes, updated_at'
+const BRAND_DETAIL_SELECT = 'id, name, slug, logo_url, font_url, primary_color, value_proposition, monthly_pieces_limit, descripcion, concepto_comunicacional, mandatorios_generales, puntos_clave, tono_estilo, redes_disponibles, competidores, fechas_importantes, audiencias_marca, updated_at'
 
 function toSetup(row: BrandDetailRow): BrandSetup {
   return {
@@ -128,9 +129,10 @@ function toSetup(row: BrandDetailRow): BrandSetup {
     valueProposition: row.value_proposition ?? '',
     puntosClave: row.puntos_clave ?? [],
     tonoEstilo: row.tono_estilo ?? '',
-    redesDisponibles: row.redes_disponibles ?? [],
+    redesDisponibles: Array.isArray(row.redes_disponibles) ? (row.redes_disponibles as BrandRed[]) : [],
     competidores: row.competidores ?? [],
     fechasImportantes: row.fechas_importantes ?? [],
+    audienciasMarca: Array.isArray(row.audiencias_marca) ? (row.audiencias_marca as PlanAudience[]) : [],
     monthlyPiecesLimit: row.monthly_pieces_limit ?? undefined,
     updatedAt: new Date(row.updated_at),
   }
@@ -188,6 +190,7 @@ export async function upsertBrandSetup(
       redes_disponibles: setup.redesDisponibles,
       competidores: setup.competidores,
       fechas_importantes: setup.fechasImportantes,
+      audiencias_marca: setup.audienciasMarca,
       updated_at: new Date().toISOString(),
     })
     .eq('id', setup.brandId)

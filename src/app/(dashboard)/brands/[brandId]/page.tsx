@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check, Package, Users, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Type, X, CalendarDays, Sparkles, Check, Package, Users, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { useBrandDetail, useInvalidateBrandDetail } from '@/hooks/use-brand-setup'
 import { useBrandMembers, useAddBrandMember, useUpdateBrandMemberRole, useRemoveBrandMember } from '@/hooks/use-brand-members'
-import type { UserRole } from '@/types/domain'
+import type { UserRole, BrandRed, PlanAudience } from '@/types/domain'
 import { ROLE_LABELS } from '@/types/domain'
 import { toast } from 'sonner'
 
@@ -21,13 +21,13 @@ const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = 
   { value: 'content', label: 'Content', description: 'Genera artes y sube assets' },
 ]
 
-interface Props {
-  params: Promise<{ brandId: string }>
-}
-
 const TONO_PRESETS = ['Profesional', 'Conversacional', 'Motivador', 'Informativo', 'Divertido', 'Formal', 'Empático', 'Directo', 'Cercano', 'Experto', 'Audaz', 'Inspirador']
 
 const REDES_PRESETS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'YouTube', 'X (Twitter)', 'WhatsApp', 'Google Ads', 'Meta Ads', 'Email']
+
+interface Props {
+  params: Promise<{ brandId: string }>
+}
 
 function PresetChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -92,6 +92,99 @@ function TagInput({
   )
 }
 
+function BrandAudienceCard({
+  audience,
+  onChange,
+  onRemove,
+}: {
+  audience: PlanAudience
+  onChange: (a: PlanAudience) => void
+  onRemove: () => void
+}) {
+  const [open, setOpen] = useState(!audience.name)
+
+  function set<K extends keyof PlanAudience>(key: K, value: PlanAudience[K]) {
+    onChange({ ...audience, [key]: value })
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-background">
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+        onClick={() => setOpen(o => !o)}
+      >
+        <div className="flex-1 min-w-0">
+          {audience.name ? (
+            <p className="text-sm font-medium text-foreground truncate">{audience.name}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Nueva audiencia</p>
+          )}
+          {!open && audience.description && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{audience.description}</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onRemove() }}
+          className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+      </div>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nombre de la audiencia *</Label>
+            <Input
+              placeholder="Ej: Emprendedores digitales"
+              value={audience.name}
+              onChange={e => set('name', e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Descripción</Label>
+            <Textarea
+              placeholder="Edad, contexto, situación de vida..."
+              value={audience.description ?? ''}
+              onChange={e => set('description', e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Creencias limitantes</Label>
+            <p className="text-[11px] text-muted-foreground">Lo que creen (y les frena). Ej: "Es muy caro para mí"</p>
+            <TagInput
+              values={audience.beliefs ?? []}
+              onChange={v => set('beliefs', v)}
+              placeholder="Agregar creencia..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Dolores</Label>
+            <p className="text-[11px] text-muted-foreground">Problemas reales que tienen hoy.</p>
+            <TagInput
+              values={audience.pains ?? []}
+              onChange={v => set('pains', v)}
+              placeholder="Agregar dolor..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Quieren lograr (JTBD)</Label>
+            <p className="text-[11px] text-muted-foreground">Qué contratan implícitamente al comprar.</p>
+            <TagInput
+              values={audience.jtbd ?? []}
+              onChange={v => set('jtbd', v)}
+              placeholder="Agregar deseo..."
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BrandSetupPage({ params }: Props) {
   const { brandId } = use(params)
   const { data: brand, isLoading } = useBrandDetail(brandId)
@@ -103,9 +196,10 @@ export default function BrandSetupPage({ params }: Props) {
   const [tonoEstilo, setTonoEstilo] = useState('')
   const [puntosClave, setPuntosClave] = useState<string[]>([])
   const [mandatoriosGenerales, setMandatoriosGenerales] = useState<string[]>([])
-  const [redesDisponibles, setRedesDisponibles] = useState<string[]>([])
+  const [redesDisponibles, setRedesDisponibles] = useState<BrandRed[]>([])
   const [competidores, setCompetidores] = useState<string[]>([])
   const [fechasImportantes, setFechasImportantes] = useState<string[]>([])
+  const [audienciasMarca, setAudienciasMarca] = useState<PlanAudience[]>([])
   const [monthlyPiecesLimit, setMonthlyPiecesLimit] = useState<number | ''>('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [fontUrl, setFontUrl] = useState<string | null>(null)
@@ -165,6 +259,7 @@ export default function BrandSetupPage({ params }: Props) {
     setRedesDisponibles(brand.redesDisponibles ?? [])
     setCompetidores(brand.competidores ?? [])
     setFechasImportantes(brand.fechasImportantes ?? [])
+    setAudienciasMarca(brand.audienciasMarca ?? [])
     setMonthlyPiecesLimit(brand.monthlyPiecesLimit ?? '')
     setLogoUrl(brand.logoUrl ?? null)
     setFontUrl(brand.fontUrl ?? null)
@@ -196,6 +291,29 @@ export default function BrandSetupPage({ params }: Props) {
     } else {
       setter([...parts, preset].join(', '))
     }
+  }
+
+  function toggleRed(red: string) {
+    if (redesDisponibles.some(r => r.red === red)) {
+      setRedesDisponibles(prev => prev.filter(r => r.red !== red))
+    } else {
+      setRedesDisponibles(prev => [...prev, { red, usuario: '' }])
+    }
+  }
+
+  function updateUsuario(red: string, usuario: string) {
+    setRedesDisponibles(prev => prev.map(r => r.red === red ? { ...r, usuario } : r))
+  }
+
+  function addCustomRed(name: string) {
+    const val = name.trim()
+    if (val && !redesDisponibles.some(r => r.red === val)) {
+      setRedesDisponibles(prev => [...prev, { red: val, usuario: '' }])
+    }
+  }
+
+  function addAudiencia() {
+    setAudienciasMarca(prev => [...prev, { name: '', description: '', beliefs: [], pains: [], jtbd: [] }])
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -257,6 +375,7 @@ export default function BrandSetupPage({ params }: Props) {
           redesDisponibles,
           competidores,
           fechasImportantes,
+          audienciasMarca,
           primaryColor,
           monthlyPiecesLimit: monthlyPiecesLimit === '' ? undefined : monthlyPiecesLimit,
         }),
@@ -285,6 +404,7 @@ export default function BrandSetupPage({ params }: Props) {
 
   const brandInitials = brand?.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) ?? '?'
   const colorAlpha = `${primaryColor}18`
+  const customReds = redesDisponibles.filter(r => !REDES_PRESETS.includes(r.red))
 
   return (
     <div className="p-8 max-w-2xl">
@@ -301,7 +421,6 @@ export default function BrandSetupPage({ params }: Props) {
         <div className="h-1.5" style={{ backgroundColor: primaryColor }} />
         <div className="p-6">
           <div className="flex items-center gap-4">
-            {/* Logo upload zone */}
             <button
               onClick={() => logoInputRef.current?.click()}
               disabled={uploadingLogo}
@@ -327,7 +446,6 @@ export default function BrandSetupPage({ params }: Props) {
             </button>
             <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
 
-            {/* Name + completion */}
             <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold tracking-tight text-foreground truncate">{brand?.name ?? '—'}</h1>
               <p className="text-xs text-muted-foreground mt-0.5">{brand?.slug}</p>
@@ -344,7 +462,6 @@ export default function BrandSetupPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Plans link */}
             <Link
               href={`/brands/${brandId}/plans`}
               className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
@@ -402,6 +519,38 @@ export default function BrandSetupPage({ params }: Props) {
           </div>
         </div>
 
+        {/* Audiencias de la marca */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-card-foreground">Audiencias de la marca</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Define los segmentos que esta marca busca impactar. Pueden seleccionarse al crear un plan.</p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-400">
+              <Sparkles className="h-3 w-3" />
+              Mayor impacto en IA
+            </span>
+          </div>
+
+          {audienciasMarca.length > 0 && (
+            <div className="space-y-2">
+              {audienciasMarca.map((a, i) => (
+                <BrandAudienceCard
+                  key={i}
+                  audience={a}
+                  onChange={updated => setAudienciasMarca(prev => prev.map((x, idx) => idx === i ? updated : x))}
+                  onRemove={() => setAudienciasMarca(prev => prev.filter((_, idx) => idx !== i))}
+                />
+              ))}
+            </div>
+          )}
+
+          <Button type="button" variant="outline" className="w-full gap-2" onClick={addAudiencia}>
+            <Plus className="h-4 w-4" />
+            Agregar audiencia
+          </Button>
+        </div>
+
         {/* Comunicación */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
           <h2 className="font-semibold text-card-foreground">Comunicación</h2>
@@ -447,32 +596,52 @@ export default function BrandSetupPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Canales y mercado */}
+        {/* Canales y presencia digital */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-          <h2 className="font-semibold text-card-foreground">Canales y mercado</h2>
+          <h2 className="font-semibold text-card-foreground">Canales y presencia digital</h2>
 
           <div className="space-y-3">
-            <Label>Redes o canales disponibles</Label>
-            <p className="text-xs text-muted-foreground">Los canales activos donde esta marca publica o pauta.</p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <Label>Redes y canales disponibles</Label>
+            <p className="text-xs text-muted-foreground">Selecciona los canales activos e ingresa el usuario o handle de cada uno.</p>
+
+            {/* Preset chips */}
+            <div className="flex flex-wrap gap-1.5">
               {REDES_PRESETS.map(red => (
                 <PresetChip
                   key={red}
                   label={red}
-                  active={redesDisponibles.includes(red)}
-                  onClick={() =>
-                    redesDisponibles.includes(red)
-                      ? setRedesDisponibles(prev => prev.filter(r => r !== red))
-                      : setRedesDisponibles(prev => [...prev, red])
-                  }
+                  active={redesDisponibles.some(r => r.red === red)}
+                  onClick={() => toggleRed(red)}
                 />
               ))}
             </div>
-            <TagInput
-              values={redesDisponibles.filter(r => !REDES_PRESETS.includes(r))}
-              onChange={extras => setRedesDisponibles([...redesDisponibles.filter(r => REDES_PRESETS.includes(r)), ...extras])}
-              placeholder="Otro canal..."
-            />
+
+            {/* Selected networks with username inputs */}
+            {redesDisponibles.length > 0 && (
+              <div className="space-y-2 pt-1">
+                {redesDisponibles.map(r => (
+                  <div key={r.red} className="flex items-center gap-2">
+                    <span className="w-28 text-xs font-medium text-foreground shrink-0 truncate">{r.red}</span>
+                    <Input
+                      placeholder={`Usuario en ${r.red}`}
+                      value={r.usuario}
+                      onChange={e => updateUsuario(r.red, e.target.value)}
+                      className="flex-1 h-8 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setRedesDisponibles(prev => prev.filter(x => x.red !== r.red))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add custom channel */}
+            <AddCustomRed onAdd={addCustomRed} />
           </div>
 
           <div className="space-y-2">
@@ -504,12 +673,11 @@ export default function BrandSetupPage({ params }: Props) {
               <h2 className="font-semibold text-card-foreground">Plan mensual contratado</h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              Define el número máximo de piezas incluidas en el plan mensual del cliente. El sistema alertará si se requieren piezas adicionales.
+              Define el número máximo de piezas incluidas en el plan mensual del cliente.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Input
-              id="monthlyPiecesLimit"
               type="number"
               min={1}
               max={500}
@@ -595,12 +763,9 @@ export default function BrandSetupPage({ params }: Props) {
               <Users className="h-4 w-4 text-muted-foreground" />
               <h2 className="font-semibold text-card-foreground">Miembros y roles</h2>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Asigna acceso a esta marca por persona y rol.
-            </p>
+            <p className="text-xs text-muted-foreground">Asigna acceso a esta marca por persona y rol.</p>
           </div>
 
-          {/* Role legend */}
           <div className="grid gap-2">
             {ROLE_OPTIONS.map(r => (
               <div key={r.value} className="flex items-start gap-2.5">
@@ -612,7 +777,6 @@ export default function BrandSetupPage({ params }: Props) {
             ))}
           </div>
 
-          {/* Current members */}
           {members.length > 0 && (
             <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
               {members.map(m => (
@@ -641,7 +805,6 @@ export default function BrandSetupPage({ params }: Props) {
             </div>
           )}
 
-          {/* Add member form */}
           <div className="flex gap-2">
             <Input
               placeholder="Email del usuario..."
@@ -682,6 +845,27 @@ export default function BrandSetupPage({ params }: Props) {
           {isSaving ? 'Guardando...' : 'Guardar configuración'}
         </Button>
       </div>
+    </div>
+  )
+}
+
+function AddCustomRed({ onAdd }: { onAdd: (name: string) => void }) {
+  const [input, setInput] = useState('')
+  function add() {
+    if (input.trim()) { onAdd(input.trim()); setInput('') }
+  }
+  return (
+    <div className="flex gap-2">
+      <Input
+        placeholder="Otro canal..."
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        className="h-8 text-sm"
+      />
+      <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={add}>
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
     </div>
   )
 }

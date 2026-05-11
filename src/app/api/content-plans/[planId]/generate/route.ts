@@ -134,6 +134,13 @@ Tono y estilo: ${brand.tonoEstilo || 'N/A'}
 ${pillars ? `Puntos clave: ${pillars}` : ''}
 ${brand.mandatoriosGenerales?.length ? `Mandatorios (siempre incluir): ${brand.mandatoriosGenerales.join(' / ')}` : ''}
 ${brand.competidores?.length ? `Competidores: ${brand.competidores.join(', ')}` : ''}
+${brand.audienciasMarca?.length ? `\n═══ AUDIENCIAS DE LA MARCA ═══\n${(brand.audienciasMarca as Array<{ name: string; description?: string; beliefs?: string[]; pains?: string[]; jtbd?: string[] }>).map(a => {
+  const lines = [`• ${a.name}${a.description ? ` — ${a.description}` : ''}`]
+  if (a.beliefs?.length) lines.push(`  Creencias: ${a.beliefs.join(' / ')}`)
+  if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
+  if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
+  return lines.join('\n')
+}).join('\n')}` : ''}
 ${audiencesSection}
 ═══ MES ═══
 ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
