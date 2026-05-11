@@ -2,7 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink, Film, Image, Layers, MessageCircle, Share2, Globe, ThumbsUp, Upload, Calendar, Bookmark } from 'lucide-react'
+import { ArrowLeft, Sparkles, Check, X, Pencil, ChevronRight, ChevronLeft, Zap, Heart, BarChart2, RefreshCw, Copy, ExternalLink, Film, Image, Layers, MessageCircle, Share2, Globe, ThumbsUp, Upload, Calendar, Bookmark, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SafeZonePreview } from '@/components/creative/safe-zone-preview'
 import { AdobeExpressBtn } from '@/components/creative/adobe-express-btn'
@@ -1422,11 +1422,23 @@ export default function PlanDetailPage({ params }: Props) {
       </Link>
       <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground">{monthLabel}</h1>
       {plan?.products && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 space-y-1.5">
           {plan.products.map((p, i) => (
-            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-              {p.name} · <span className="text-foreground">{p.objective}</span>
-            </span>
+            <div key={i} className="flex items-start gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                {p.name}{p.objective ? <> · <span className="text-foreground">{p.objective}</span></> : null}
+              </span>
+              {p.audiences?.length ? (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Users className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                  {p.audiences.map(aud => (
+                    <span key={aud} className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                      {aud}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

@@ -71,8 +71,9 @@ export async function POST(
 
     const audiencesText = plan.audiences?.length
       ? plan.audiences.map((a, idx) => {
-          const lines = [`${idx + 1}. **${a.name}**`]
+          const lines = [`${idx + 1}. **${a.name}**${a.age ? ` (${a.age})` : ''}`]
           if (a.description) lines.push(`   ${a.description}`)
+          if (a.interests?.length) lines.push(`   Intereses: ${a.interests.join(' · ')}`)
           if (a.beliefs?.length) lines.push(`   Creencias: ${a.beliefs.join(' · ')}`)
           if (a.pains?.length) lines.push(`   Dolores: ${a.pains.join(' · ')}`)
           if (a.jtbd?.length) lines.push(`   Quieren lograr: ${a.jtbd.join(' · ')}`)

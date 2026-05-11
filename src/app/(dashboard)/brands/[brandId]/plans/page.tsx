@@ -124,85 +124,104 @@ function TagInput({ value, onChange, placeholder }: { value: string[]; onChange:
   )
 }
 
-function AudienceCard({
-  audience,
-  index,
-  total,
-  onChange,
-  onRemove,
-}: {
-  audience: PlanAudience
-  index: number
-  total: number
-  onChange: (a: PlanAudience) => void
-  onRemove: () => void
-}) {
-  const [expanded, setExpanded] = useState(true)
+
+function InlineAudienceForm({ onCreate, onCancel }: { onCreate: (a: PlanAudience) => void; onCancel: () => void }) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [age, setAge] = useState('')
+  const [interests, setInterests] = useState<string[]>([])
+  const [showMore, setShowMore] = useState(false)
+  const [beliefs, setBeliefs] = useState<string[]>([])
+  const [pains, setPains] = useState<string[]>([])
+  const [jtbd, setJtbd] = useState<string[]>([])
+
+  function submit() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onCreate({
+      name: trimmed,
+      description: description.trim() || undefined,
+      age: age.trim() || undefined,
+      interests: interests.length ? interests : undefined,
+      beliefs: beliefs.length ? beliefs : undefined,
+      pains: pains.length ? pains : undefined,
+      jtbd: jtbd.length ? jtbd : undefined,
+    })
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-background">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setExpanded(e => !e)}
-          className="flex items-center gap-2 text-left flex-1"
-        >
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-            {total > 1 ? `Audiencia ${index + 1}` : 'Audiencia objetivo'}
-          </span>
-          {audience.name && (
-            <span className="text-xs text-foreground font-medium truncate">{audience.name}</span>
-          )}
-          <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`} />
+    <div className="rounded-lg border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/40 dark:bg-violet-950/20 p-3 space-y-2.5">
+      <div className="flex gap-1.5 items-center">
+        <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 shrink-0">Nueva audiencia</p>
+        <div className="flex-1" />
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-destructive transition-colors">
+          <X className="h-3.5 w-3.5" />
         </button>
-        {total > 1 && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="ml-2 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
-      {expanded && (
-        <div className="p-4 space-y-3">
-          <Input
-            placeholder="Nombre de la audiencia (ej: Emprendedores 30-45 años)"
-            value={audience.name}
-            onChange={e => onChange({ ...audience, name: e.target.value })}
-          />
-          <Textarea
-            placeholder="Descripción: quiénes son, qué los caracteriza (opcional)"
-            value={audience.description ?? ''}
-            onChange={e => onChange({ ...audience, description: e.target.value })}
-            rows={2}
-          />
+
+      {/* Name */}
+      <Input
+        autoFocus
+        placeholder="Nombre de la audiencia *  (ej: Gamers 18-25, Emprendedores digitales...)"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') onCancel() }}
+        className="h-8 text-xs"
+      />
+
+      {/* Description */}
+      <Input
+        placeholder="Descripción breve (opcional)"
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        className="h-8 text-xs"
+      />
+
+      {/* Age */}
+      <Input
+        placeholder="Edad o rango de edad  (ej: 25-35 años, Millennials, +40)"
+        value={age}
+        onChange={e => setAge(e.target.value)}
+        className="h-8 text-xs"
+      />
+
+      {/* Interests */}
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Intereses y características</p>
+        <TagInput value={interests} onChange={setInterests} placeholder="Ej: Gaming, tecnología, deportes  (Enter para agregar)" />
+      </div>
+
+      {/* Advanced toggle */}
+      {!showMore ? (
+        <button type="button" onClick={() => setShowMore(true)} className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline">
+          + Agregar creencias limitantes y dolores (mejora la generación de ideas)
+        </button>
+      ) : (
+        <div className="space-y-2 border-t border-violet-200 dark:border-violet-800 pt-2">
           <div className="space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Creencias limitantes</p>
-            <TagInput
-              value={audience.beliefs ?? []}
-              onChange={v => onChange({ ...audience, beliefs: v })}
-              placeholder="Ej: Es muy caro para lo que ofrece"
-            />
+            <TagInput value={beliefs} onChange={setBeliefs} placeholder="Ej: Es muy caro para lo que ofrece" />
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dolores / frustraciones</p>
-            <TagInput
-              value={audience.pains ?? []}
-              onChange={v => onChange({ ...audience, pains: v })}
-              placeholder="Ej: Pierde clientes por falta de presencia online"
-            />
+            <TagInput value={pains} onChange={setPains} placeholder="Ej: No llega a más clientes" />
           </div>
           <div className="space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Jobs To Be Done (qué quieren lograr)</p>
-            <TagInput
-              value={audience.jtbd ?? []}
-              onChange={v => onChange({ ...audience, jtbd: v })}
-              placeholder="Ej: Atraer clientes sin depender de referidos"
-            />
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quieren lograr (JTBD)</p>
+            <TagInput value={jtbd} onChange={setJtbd} placeholder="Ej: Crecer sin depender de referidos" />
           </div>
         </div>
       )}
+
+      <Button
+        type="button"
+        size="sm"
+        className="w-full h-8 text-xs"
+        onClick={submit}
+        disabled={!name.trim()}
+      >
+        Guardar audiencia
+      </Button>
     </div>
   )
 }
@@ -213,16 +232,23 @@ function ProductCard({
   total,
   onChange,
   onRemove,
-  audienceNames,
+  brandAuds,
+  customAuds,
+  onCreateAudience,
 }: {
   product: PlanProduct
   index: number
   total: number
   onChange: (p: PlanProduct) => void
   onRemove: () => void
-  audienceNames: string[]
+  brandAuds: PlanAudience[]
+  customAuds: PlanAudience[]
+  onCreateAudience: (aud: PlanAudience) => void
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showAudForm, setShowAudForm] = useState(false)
+
+  const allAuds = [...brandAuds, ...customAuds]
 
   function updateLeadMethods(methods: string[]) {
     onChange({ ...product, leadMethods: methods })
@@ -231,6 +257,15 @@ function ProductCard({
   function toggleAudience(name: string) {
     const cur = product.audiences ?? []
     onChange({ ...product, audiences: cur.includes(name) ? cur.filter(a => a !== name) : [...cur, name] })
+  }
+
+  function handleCreateAudience(aud: PlanAudience) {
+    onCreateAudience(aud)
+    const cur = product.audiences ?? []
+    if (!cur.includes(aud.name)) {
+      onChange({ ...product, audiences: [...cur, aud.name] })
+    }
+    setShowAudForm(false)
   }
 
   return (
@@ -258,6 +293,68 @@ function ProductCard({
           onChange={e => onChange({ ...product, description: e.target.value })}
           rows={2}
         />
+
+        {/* Audience selector — inline inside product */}
+        <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              ¿A qué audiencias se dirige este producto?
+            </p>
+            {(product.audiences ?? []).length > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                {(product.audiences ?? []).length} seleccionada{(product.audiences ?? []).length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Existing audience chips */}
+          {allAuds.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {allAuds.map(aud => {
+                const active = (product.audiences ?? []).includes(aud.name)
+                const isNew = customAuds.some(c => c.name === aud.name)
+                return (
+                  <button
+                    key={aud.name}
+                    type="button"
+                    onClick={() => toggleAudience(aud.name)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                      active
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                    }`}
+                  >
+                    {active && <Check className="h-3 w-3" />}
+                    {aud.name}
+                    {isNew && !active && <span className="text-[9px] opacity-50 ml-0.5">nuevo</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Help text when nothing selected */}
+          {!showAudForm && (product.audiences ?? []).length === 0 && (
+            <p className="text-[11px] text-muted-foreground/70 leading-snug">
+              Puedes seleccionar o crear una audiencia para personalizar mejor las piezas de este producto.
+            </p>
+          )}
+
+          {/* Inline create form */}
+          {showAudForm ? (
+            <InlineAudienceForm onCreate={handleCreateAudience} onCancel={() => setShowAudForm(false)} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAudForm(true)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors pt-0.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {allAuds.length === 0 ? 'Crear audiencia' : 'Agregar audiencia personalizada'}
+            </button>
+          )}
+        </div>
 
         {/* Objetivo */}
         <div className="space-y-1">
@@ -290,35 +387,6 @@ function ProductCard({
               value={product.leadMethods ?? []}
               onChange={updateLeadMethods}
             />
-          </div>
-        )}
-
-        {/* Audiences for this product */}
-        {audienceNames.length > 0 && (
-          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 space-y-2">
-            <p className="text-xs font-semibold text-foreground/70">¿A qué audiencias se dirige este producto?</p>
-            <div className="flex flex-wrap gap-1.5">
-              {audienceNames.map(name => {
-                const active = (product.audiences ?? []).includes(name)
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => toggleAudience(name)}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                      active
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-                    }`}
-                  >
-                    {name}
-                  </button>
-                )
-              })}
-            </div>
-            {(product.audiences ?? []).length === 0 && (
-              <p className="text-[10px] text-muted-foreground/70">Selecciona al menos una audiencia para personalizar las piezas</p>
-            )}
           </div>
         )}
 
@@ -434,7 +502,9 @@ export default function PlansPage({ params }: Props) {
   const [year, setYear] = useState(defaults.year)
   const [context, setContext] = useState('')
   const [products, setProducts] = useState<PlanProduct[]>([emptyProduct()])
-  const [audiences, setAudiences] = useState<PlanAudience[]>([emptyAudience()])
+  const [customAuds, setCustomAuds] = useState<PlanAudience[]>([])
+
+  const brandAuds: PlanAudience[] = brand?.audienciasMarca ?? []
 
   function openForm() {
     const d = getNextMonth()
@@ -442,8 +512,7 @@ export default function PlansPage({ params }: Props) {
     setYear(d.year)
     setContext('')
     setProducts([emptyProduct()])
-    const brandAuds = brand?.audienciasMarca ?? []
-    setAudiences(brandAuds.length > 0 ? brandAuds.map(a => ({ ...a })) : [emptyAudience()])
+    setCustomAuds([])
     setShowForm(true)
   }
 
@@ -453,28 +522,14 @@ export default function PlansPage({ params }: Props) {
     setYear(d.year)
     setContext('')
     setProducts([emptyProduct()])
-    setAudiences([emptyAudience()])
+    setCustomAuds([])
     setShowForm(false)
   }
 
-  const audienceNames = audiences.map(a => a.name).filter(Boolean)
-  const brandAuds: PlanAudience[] = brand?.audienciasMarca ?? []
-  const hasBrandAuds = brandAuds.length > 0
-  const selectedBrandNames = new Set(
-    audiences.filter(a => brandAuds.some(b => b.name === a.name)).map(a => a.name)
-  )
-  const customAuds = audiences.filter(a => !brandAuds.some(b => b.name === a.name))
-
-  function toggleBrandAudience(aud: PlanAudience) {
-    if (selectedBrandNames.has(aud.name)) {
-      setAudiences(prev => prev.filter(a => a.name !== aud.name))
-    } else {
-      setAudiences(prev => [...prev, { ...aud }])
+  function handleCreateAudience(aud: PlanAudience) {
+    if (!customAuds.some(a => a.name === aud.name) && !brandAuds.some(a => a.name === aud.name)) {
+      setCustomAuds(prev => [...prev, aud])
     }
-  }
-
-  function addCustomAudience() {
-    setAudiences(prev => [...prev, emptyAudience()])
   }
 
   async function handleCreate() {
@@ -483,13 +538,16 @@ export default function PlansPage({ params }: Props) {
       toast.error('Agrega al menos un producto o servicio')
       return
     }
-    const validAudiences = audiences.filter(a => a.name.trim())
+    const allLinkedNames = new Set(validProducts.flatMap(p => p.audiences ?? []))
+    const brandAudsUsed = brandAuds.filter(a => allLinkedNames.has(a.name))
+    const customAudsUsed = customAuds.filter(a => allLinkedNames.has(a.name))
+    const allAudiences = [...brandAudsUsed, ...customAudsUsed]
     try {
       const plan = await createPlan({
         month,
         year,
         products: validProducts,
-        audiences: validAudiences.length ? validAudiences : undefined,
+        audiences: allAudiences.length ? allAudiences : undefined,
         context: context || undefined,
       })
       toast.success('Plan creado')
@@ -551,165 +609,12 @@ export default function PlansPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Audiences */}
-          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <div>
-              <h2 className="font-semibold text-card-foreground flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                Audiencias objetivo
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Claude personaliza cada pieza según las audiencias seleccionadas
-              </p>
-            </div>
-
-            {hasBrandAuds ? (
-              <div className="space-y-3">
-                {/* Brand audience chips */}
-                <div className="space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Audiencias configuradas en la marca
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {brandAuds.map(aud => {
-                      const selected = selectedBrandNames.has(aud.name)
-                      return (
-                        <button
-                          key={aud.name}
-                          type="button"
-                          onClick={() => toggleBrandAudience(aud)}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                            selected
-                              ? 'border-foreground bg-foreground text-background'
-                              : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                          }`}
-                        >
-                          {selected && <Check className="h-3 w-3" />}
-                          {aud.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Preview of selected brand audiences */}
-                {selectedBrandNames.size > 0 && (
-                  <div className="space-y-2">
-                    {audiences
-                      .filter(a => selectedBrandNames.has(a.name))
-                      .map(a => (
-                        <div key={a.name} className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-foreground">{a.name}</p>
-                            <button
-                              type="button"
-                              onClick={() => toggleBrandAudience(a)}
-                              className="text-muted-foreground hover:text-destructive transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                          {a.description && (
-                            <p className="text-[11px] text-muted-foreground">{a.description}</p>
-                          )}
-                          {(a.beliefs?.length || a.pains?.length || a.jtbd?.length) ? (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {a.beliefs?.slice(0, 2).map(b => (
-                                <span key={b} className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">{b}</span>
-                              ))}
-                              {a.pains?.slice(0, 2).map(p => (
-                                <span key={p} className="rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-[10px] text-red-700 dark:text-red-400">{p}</span>
-                              ))}
-                              {a.jtbd?.slice(0, 1).map(j => (
-                                <span key={j} className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400">{j}</span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* Custom audiences */}
-                {customAuds.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Audiencias adicionales para este plan
-                    </p>
-                    {customAuds.map(aud => {
-                      const realIdx = audiences.findIndex(a => a === aud)
-                      return (
-                        <AudienceCard
-                          key={realIdx}
-                          audience={aud}
-                          index={realIdx}
-                          total={customAuds.length}
-                          onChange={updated => setAudiences(a => a.map((x, i) => i === realIdx ? updated : x))}
-                          onRemove={() => setAudiences(a => a.filter((_, i) => i !== realIdx))}
-                        />
-                      )
-                    })}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={addCustomAudience}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar audiencia personalizada para este plan
-                </button>
-              </div>
-            ) : (
-              /* No brand audiences configured */
-              <div className="space-y-3">
-                <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 flex items-start gap-3">
-                  <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-medium text-foreground">Sin audiencias configuradas en la marca</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Ve a{' '}
-                      <a
-                        href={`/brands/${brandId}`}
-                        className="underline hover:text-foreground"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Configurar marca
-                      </a>
-                      {' '}→ sección "Audiencias de la marca" y guarda. Luego vuelve aquí y verás los chips de selección.
-                    </p>
-                  </div>
-                </div>
-                {audiences.map((aud, i) => (
-                  <AudienceCard
-                    key={i}
-                    audience={aud}
-                    index={i}
-                    total={audiences.length}
-                    onChange={updated => setAudiences(a => a.map((x, idx) => idx === i ? updated : x))}
-                    onRemove={() => setAudiences(a => a.filter((_, idx) => idx !== i))}
-                  />
-                ))}
-                <button
-                  type="button"
-                  onClick={addCustomAudience}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar audiencia para este plan
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Products */}
+          {/* Products — each includes audience selector inline */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-card-foreground">Productos o servicios a promover</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Claude genera un funnel independiente para cada uno</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Asigna audiencias a cada producto — Claude personaliza las ideas por audiencia</p>
               </div>
               <button
                 type="button"
@@ -730,7 +635,9 @@ export default function PlansPage({ params }: Props) {
                   total={products.length}
                   onChange={updated => setProducts(p => p.map((x, idx) => idx === i ? updated : x))}
                   onRemove={() => setProducts(p => p.filter((_, idx) => idx !== i))}
-                  audienceNames={audienceNames}
+                  brandAuds={brandAuds}
+                  customAuds={customAuds}
+                  onCreateAudience={handleCreateAudience}
                 />
               ))}
             </div>

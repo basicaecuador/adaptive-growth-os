@@ -109,13 +109,27 @@ export async function POST(
       if (p.legalRestrictions) lines.push(`   Restricción legal: ${p.legalRestrictions}`)
       if (p.websiteUrl) lines.push(`   Web: ${p.websiteUrl}`)
       const audNames = p.audiences?.length ? p.audiences : null
-      if (audNames?.length) lines.push(`   Audiencias objetivo: ${audNames.join(', ')}`)
+      if (audNames?.length) {
+        lines.push(`   Audiencias objetivo: ${audNames.join(', ')}`)
+        const audDetails = (plan.audiences ?? []).filter(a => audNames.includes(a.name))
+        for (const a of audDetails) {
+          const detail: string[] = []
+          if (a.description) detail.push(a.description)
+          if (a.age) detail.push(`edad: ${a.age}`)
+          if (a.interests?.length) detail.push(`intereses: ${a.interests.slice(0, 3).join(', ')}`)
+          if (a.beliefs?.length) detail.push(`creencias: ${a.beliefs.slice(0, 2).join(' / ')}`)
+          if (a.pains?.length) detail.push(`dolores: ${a.pains.slice(0, 2).join(' / ')}`)
+          if (a.jtbd?.length) detail.push(`desean: ${a.jtbd.slice(0, 2).join(' / ')}`)
+          if (detail.length) lines.push(`     → ${a.name}: ${detail.join(' | ')}`)
+        }
+      }
       return lines.join('\n')
     }).join('\n\n')
 
     const audiencesSection = plan.audiences?.length
       ? `\n═══ AUDIENCIAS DEL PLAN ═══\n${plan.audiences.map(a => {
-          const lines = [`• ${a.name}${a.description ? ` — ${a.description}` : ''}`]
+          const lines = [`• ${a.name}${a.age ? ` (${a.age})` : ''}${a.description ? ` — ${a.description}` : ''}`]
+          if (a.interests?.length) lines.push(`  Intereses: ${a.interests.join(', ')}`)
           if (a.beliefs?.length) lines.push(`  Creencias limitantes: ${a.beliefs.join(' / ')}`)
           if (a.pains?.length) lines.push(`  Dolores: ${a.pains.join(' / ')}`)
           if (a.jtbd?.length) lines.push(`  Quieren lograr: ${a.jtbd.join(' / ')}`)
@@ -209,7 +223,7 @@ CLASIFICACIÓN POR PIEZA:
 - content_category: "social" (Instagram/Facebook/TikTok) | "sem" (Google Search) | "display" (Google Display/banners) | "blog" (artículo SEO)
 - production_type: "stock" | "produccion_propia" | "diseno_grafico" | "imagen_referencial" | "video_grabado" | "animacion"
 - conversion_channel: solo para etapa "conversion" → "whatsapp" | "landing_page" | "sitio_web" | "formulario_meta" | "app" | null
-- target_audience: nombre de la audiencia objetivo de esta pieza (de las audiencias del plan) | null
+- target_audience: nombre EXACTO de la audiencia objetivo de esta pieza — usa el nombre de las audiencias asignadas al producto (campo "Audiencias objetivo" del producto); si el producto tiene múltiples audiencias alterna entre ellas; null solo si el producto no tiene audiencias asignadas
 
 CONTENIDO POR FORMATO:
 Reel/Historia → content="HOOK TYPE: [visual|texto|trending]\\nAUDIO: [música o voz]\\nESC1 (Xs): Visual:[...] | Voz:[...] | Pantalla:[texto obligatorio]\\nESC2 (Xs): Visual:[...] | Voz:[...] | Pantalla:[...]\\nESC3 (Xs): Visual:[...] | Voz:[...] | Pantalla:[CTA visible]\\nDURACIÓN: Xs | MOMENTO: [Pitch|Plan]\\nSHAREABILITY: [motivo concreto]"

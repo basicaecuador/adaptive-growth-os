@@ -96,6 +96,8 @@ export interface FunnelDistribution {
 export interface PlanAudience {
   name: string
   description?: string
+  age?: string
+  interests?: string[]
   beliefs?: string[]
   pains?: string[]
   jtbd?: string[]
