@@ -662,8 +662,26 @@ export default function PlansPage({ params }: Props) {
                 </button>
               </div>
             ) : (
-              /* No brand audiences — full form */
+              /* No brand audiences configured */
               <div className="space-y-3">
+                <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 flex items-start gap-3">
+                  <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Sin audiencias configuradas en la marca</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Ve a{' '}
+                      <a
+                        href={`/brands/${brandId}`}
+                        className="underline hover:text-foreground"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Configurar marca
+                      </a>
+                      {' '}→ sección "Audiencias de la marca" y guarda. Luego vuelve aquí y verás los chips de selección.
+                    </p>
+                  </div>
+                </div>
                 {audiences.map((aud, i) => (
                   <AudienceCard
                     key={i}
@@ -680,7 +698,7 @@ export default function PlansPage({ params }: Props) {
                   className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Agregar audiencia
+                  Agregar audiencia para este plan
                 </button>
               </div>
             )}
