@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X, Globe, MessageCircle, Phone, FileText, Send, MessageSquare, ChevronDown, Users } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, Sparkles, ChevronRight, X, Globe, MessageCircle, Phone, FileText, Send, MessageSquare, ChevronDown, Users, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -458,7 +458,24 @@ export default function PlansPage({ params }: Props) {
   }
 
   const audienceNames = audiences.map(a => a.name).filter(Boolean)
-  const fromBrandAuds = (brand?.audienciasMarca?.length ?? 0) > 0
+  const brandAuds: PlanAudience[] = brand?.audienciasMarca ?? []
+  const hasBrandAuds = brandAuds.length > 0
+  const selectedBrandNames = new Set(
+    audiences.filter(a => brandAuds.some(b => b.name === a.name)).map(a => a.name)
+  )
+  const customAuds = audiences.filter(a => !brandAuds.some(b => b.name === a.name))
+
+  function toggleBrandAudience(aud: PlanAudience) {
+    if (selectedBrandNames.has(aud.name)) {
+      setAudiences(prev => prev.filter(a => a.name !== aud.name))
+    } else {
+      setAudiences(prev => [...prev, { ...aud }])
+    }
+  }
+
+  function addCustomAudience() {
+    setAudiences(prev => [...prev, emptyAudience()])
+  }
 
   async function handleCreate() {
     const validProducts = products.filter(p => p.name.trim())
@@ -536,39 +553,137 @@ export default function PlansPage({ params }: Props) {
 
           {/* Audiences */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-card-foreground flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  Audiencias objetivo
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {fromBrandAuds
-                    ? 'Pre-cargadas desde la marca — puedes editarlas o agregar más para este plan'
-                    : 'Define a quiénes va dirigido este plan — Claude los usará para personalizar cada pieza'}
-                </p>
+            <div>
+              <h2 className="font-semibold text-card-foreground flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                Audiencias objetivo
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Claude personaliza cada pieza según las audiencias seleccionadas
+              </p>
+            </div>
+
+            {hasBrandAuds ? (
+              <div className="space-y-3">
+                {/* Brand audience chips */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Audiencias configuradas en la marca
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {brandAuds.map(aud => {
+                      const selected = selectedBrandNames.has(aud.name)
+                      return (
+                        <button
+                          key={aud.name}
+                          type="button"
+                          onClick={() => toggleBrandAudience(aud)}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                            selected
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                          }`}
+                        >
+                          {selected && <Check className="h-3 w-3" />}
+                          {aud.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Preview of selected brand audiences */}
+                {selectedBrandNames.size > 0 && (
+                  <div className="space-y-2">
+                    {audiences
+                      .filter(a => selectedBrandNames.has(a.name))
+                      .map(a => (
+                        <div key={a.name} className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-foreground">{a.name}</p>
+                            <button
+                              type="button"
+                              onClick={() => toggleBrandAudience(a)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {a.description && (
+                            <p className="text-[11px] text-muted-foreground">{a.description}</p>
+                          )}
+                          {(a.beliefs?.length || a.pains?.length || a.jtbd?.length) ? (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {a.beliefs?.slice(0, 2).map(b => (
+                                <span key={b} className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">{b}</span>
+                              ))}
+                              {a.pains?.slice(0, 2).map(p => (
+                                <span key={p} className="rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-[10px] text-red-700 dark:text-red-400">{p}</span>
+                              ))}
+                              {a.jtbd?.slice(0, 1).map(j => (
+                                <span key={j} className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400">{j}</span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Custom audiences */}
+                {customAuds.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Audiencias adicionales para este plan
+                    </p>
+                    {customAuds.map(aud => {
+                      const realIdx = audiences.findIndex(a => a === aud)
+                      return (
+                        <AudienceCard
+                          key={realIdx}
+                          audience={aud}
+                          index={realIdx}
+                          total={customAuds.length}
+                          onChange={updated => setAudiences(a => a.map((x, i) => i === realIdx ? updated : x))}
+                          onRemove={() => setAudiences(a => a.filter((_, i) => i !== realIdx))}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={addCustomAudience}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar audiencia personalizada para este plan
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setAudiences(a => [...a, emptyAudience()])}
-                className="shrink-0 text-xs font-medium text-foreground/60 hover:text-foreground flex items-center gap-1 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar
-              </button>
-            </div>
-            <div className="space-y-3">
-              {audiences.map((aud, i) => (
-                <AudienceCard
-                  key={i}
-                  audience={aud}
-                  index={i}
-                  total={audiences.length}
-                  onChange={updated => setAudiences(a => a.map((x, idx) => idx === i ? updated : x))}
-                  onRemove={() => setAudiences(a => a.filter((_, idx) => idx !== i))}
-                />
-              ))}
-            </div>
+            ) : (
+              /* No brand audiences — full form */
+              <div className="space-y-3">
+                {audiences.map((aud, i) => (
+                  <AudienceCard
+                    key={i}
+                    audience={aud}
+                    index={i}
+                    total={audiences.length}
+                    onChange={updated => setAudiences(a => a.map((x, idx) => idx === i ? updated : x))}
+                    onRemove={() => setAudiences(a => a.filter((_, idx) => idx !== i))}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={addCustomAudience}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar audiencia
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Products */}
