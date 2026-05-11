@@ -1201,8 +1201,8 @@ export default function PlanDetailPage({ params }: Props) {
   const plan = data?.plan
   const items = data?.items ?? []
 
-  // Step 1 state — funnel stage configs
-  const [stageConfigs, setStageConfigs] = useState<FunnelStageConfig[]>(DEFAULT_STAGE_CONFIGS)
+  // Step 1 state — per-product funnel configs
+  const [productFunnels, setProductFunnels] = useState<{ product: string; stages: FunnelStageConfig[] }[]>([])
 
   // Step 2 brief editing
   const [editingBrief, setEditingBrief] = useState(false)
@@ -1222,55 +1222,61 @@ export default function PlanDetailPage({ params }: Props) {
   // Expansion request popup
   const [expansionCheck, setExpansionCheck] = useState<{ expected: number; limit: number } | null>(null)
 
-  // Load saved funnel config from plan
+  // Load saved funnel config from plan — per-product
   useEffect(() => {
-    if (!plan?.funnelDistribution) return
+    if (!plan) return
+    const products = plan.products ?? []
     const dist = plan.funnelDistribution
-    if (dist.stages?.length === 3) {
-      setStageConfigs(dist.stages)
+    const freshDefaults = () => DEFAULT_STAGE_CONFIGS.map(s => ({ ...s, channels: [], notes: '' }))
+
+    if (dist?.productStages?.length) {
+      setProductFunnels(products.map(p => {
+        const existing = dist.productStages!.find(s => s.product === p.name)
+        return existing ?? { product: p.name, stages: freshDefaults() }
+      }))
+    } else if (dist?.stages?.length === 3) {
+      setProductFunnels(products.map(p => ({ product: p.name, stages: dist.stages!.map(s => ({ ...s })) })))
     } else {
-      setStageConfigs([
-        { key: 'presentacion', percentage: dist.presentacion ?? 40, channels: plan.channelMix ?? [], notes: '' },
-        { key: 'evaluacion',   percentage: dist.evaluacion   ?? 35, channels: plan.channelMix ?? [], notes: '' },
-        { key: 'conversion',   percentage: dist.conversion   ?? 25, channels: plan.channelMix ?? [], notes: '', conversionChannel: '' },
-      ])
+      setProductFunnels(products.map(p => ({ product: p.name, stages: freshDefaults() })))
     }
   }, [plan?.id])
 
-  function updateStage(key: FunnelStageConfig['key'], patch: Partial<FunnelStageConfig>) {
-    setStageConfigs(prev => prev.map(s => s.key === key ? { ...s, ...patch } : s))
+  function updateProductStage(productName: string, key: FunnelStageConfig['key'], patch: Partial<FunnelStageConfig>) {
+    setProductFunnels(prev => prev.map(pf =>
+      pf.product !== productName ? pf :
+      { ...pf, stages: pf.stages.map(s => s.key === key ? { ...s, ...patch } : s) }
+    ))
   }
 
-  function toggleStageChannel(key: FunnelStageConfig['key'], ch: string) {
-    const stage = stageConfigs.find(s => s.key === key)
+  function toggleProductChannel(productName: string, key: FunnelStageConfig['key'], ch: string) {
+    const stage = productFunnels.find(p => p.product === productName)?.stages.find(s => s.key === key)
     if (!stage) return
     const channels = stage.channels.includes(ch)
       ? stage.channels.filter(c => c !== ch)
       : [...stage.channels, ch]
-    updateStage(key, { channels })
+    updateProductStage(productName, key, { channels })
   }
 
-  const pctTotal = stageConfigs.reduce((sum, s) => sum + s.percentage, 0)
+  const allFunnelsValid = productFunnels.length > 0 && productFunnels.every(pf => {
+    const total = pf.stages.reduce((sum, s) => sum + s.percentage, 0)
+    return Math.abs(total - 100) <= 1 && pf.stages.filter(s => s.percentage > 0).every(s => s.channels.length > 0)
+  })
 
   async function handleGenerateBrief() {
-    if (Math.abs(pctTotal - 100) > 1) {
-      toast.error('La distribución del funnel debe sumar 100%')
-      return
-    }
-    const active = stageConfigs.filter(s => s.percentage > 0)
-    if (active.some(s => s.channels.length === 0)) {
-      toast.error('Selecciona al menos un canal en cada etapa activa')
+    if (!allFunnelsValid) {
+      toast.error('Cada producto debe sumar 100% y tener canales en cada etapa activa')
       return
     }
     const numProducts = plan?.products?.length ?? 1
     const totalPieces = numProducts * 7
+    const first = productFunnels[0]?.stages
     const funnelDist: FunnelDistribution = {
-      presentacion: stageConfigs[0].percentage,
-      evaluacion:   stageConfigs[1].percentage,
-      conversion:   stageConfigs[2].percentage,
-      stages: stageConfigs,
+      presentacion: first?.[0].percentage ?? 40,
+      evaluacion:   first?.[1].percentage ?? 35,
+      conversion:   first?.[2].percentage ?? 25,
+      productStages: productFunnels,
     }
-    const channelMix = [...new Set(stageConfigs.flatMap(s => s.channels))]
+    const channelMix = [...new Set(productFunnels.flatMap(pf => pf.stages.flatMap(s => s.channels)))]
     try {
       await generateBrief({ channelMix, funnelDistribution: funnelDist, piecesCount: totalPieces })
       toast.success('Brief estratégico generado')
@@ -1495,8 +1501,11 @@ export default function PlanDetailPage({ params }: Props) {
 
   // ── STEP 1: Define strategy ─────────────────────────────────────
   if (!plan?.strategicBrief) {
-    const numProducts = plan?.products?.length ?? 1
-    const totalPieces = numProducts * 7
+    const products = plan?.products ?? []
+    const PIECES_PER_PRODUCT_STEP1 = 7
+    const totalPieces = products.length * PIECES_PER_PRODUCT_STEP1
+    const pieceLimit = brand?.monthlyPiecesLimit ?? null
+    const overLimit = pieceLimit !== null && totalPieces > pieceLimit
 
     return (
       <div className="p-8 max-w-2xl">
@@ -1516,118 +1525,152 @@ export default function PlanDetailPage({ params }: Props) {
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
           <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
           <p className="text-sm text-violet-800">
-            Generaré un funnel completo por cada producto: <strong>{totalPieces} piezas</strong> ({numProducts} producto{numProducts !== 1 ? 's' : ''} × 7 piezas). Confirma los canales y la distribución del funnel.
+            Generaré un funnel completo por cada producto: <strong>{totalPieces} piezas</strong> ({products.length} producto{products.length !== 1 ? 's' : ''} × {PIECES_PER_PRODUCT_STEP1} piezas). Confirma los canales y la distribución del funnel.
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <h2 className="font-semibold text-card-foreground">Configuración del Funnel</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Define la distribución de piezas y canales por etapa del customer journey (debe sumar 100%)</p>
+            <h2 className="font-semibold text-card-foreground">Funnel por producto</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Configura la distribución y canales de cada etapa para cada producto (cada uno debe sumar 100%)</p>
           </div>
 
-          {stageConfigs.map(stage => {
-            const meta = STAGE_META[stage.key]
-            const pieces = Math.round((stage.percentage / 100) * totalPieces)
+          {productFunnels.map(pf => {
+            const pctForProduct = pf.stages.reduce((sum, s) => sum + s.percentage, 0)
+            const isValid = Math.abs(pctForProduct - 100) <= 1
             return (
-              <div key={stage.key} className={`rounded-xl border ${meta.border} ${meta.bg} p-5 space-y-4`}>
-                {/* Stage header + percentage */}
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className={`font-semibold text-sm ${meta.textColor}`}>{meta.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{meta.desc}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={stage.percentage}
-                      onChange={e => updateStage(stage.key, { percentage: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                      className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm font-bold text-center focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <span className="text-sm text-muted-foreground">%</span>
-                    <span className="text-xs text-muted-foreground ml-1">≈ {pieces} pieza{pieces !== 1 ? 's' : ''}</span>
-                  </div>
+              <div key={pf.product} className="rounded-xl border border-border bg-card p-5 space-y-4">
+                {/* Product header */}
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm text-foreground truncate">{pf.product}</h3>
+                  {isValid
+                    ? <span className="text-xs text-green-600 font-medium shrink-0">✓ 100%</span>
+                    : <span className="text-xs text-amber-600 font-medium shrink-0">Total: {pctForProduct}%</span>
+                  }
                 </div>
 
-                {/* Channel chips */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Canales</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {FUNNEL_CHANNELS.map(ch => {
-                      const active = stage.channels.includes(ch)
-                      return (
-                        <button
-                          key={ch}
-                          onClick={() => toggleStageChannel(stage.key, ch)}
-                          className={`rounded-full px-3 py-1 text-xs font-medium transition-all border ${
-                            active
-                              ? `${meta.color} border-current`
-                              : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-                          }`}
-                        >
-                          {ch}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {stage.percentage > 0 && stage.channels.length === 0 && (
-                    <p className="mt-1.5 text-xs text-amber-600">Selecciona al menos un canal para esta etapa</p>
-                  )}
-                </div>
+                {/* Stage cards */}
+                {pf.stages.map(stage => {
+                  const meta = STAGE_META[stage.key]
+                  const pieces = Math.round((stage.percentage / 100) * 7)
+                  return (
+                    <div key={stage.key} className={`rounded-lg border ${meta.border} ${meta.bg} p-4 space-y-3`}>
+                      {/* Stage header + % */}
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className={`font-semibold text-xs ${meta.textColor}`}>{meta.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{meta.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={stage.percentage}
+                            onChange={e => updateProductStage(pf.product, stage.key, { percentage: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                            className="w-14 rounded-md border border-input bg-background px-2 py-1 text-sm font-bold text-center focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                          <span className="text-[10px] text-muted-foreground ml-1 w-14">≈ {pieces} pieza{pieces !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
 
-                {/* Conversion channel selector (only for conversion stage) */}
-                {stage.key === 'conversion' && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">Canal de conversión principal</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CONVERSION_CHANNELS.map(cc => {
-                        const active = stage.conversionChannel === cc
-                        return (
-                          <button
-                            key={cc}
-                            onClick={() => updateStage('conversion', { conversionChannel: active ? '' : cc })}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all border ${
-                              active
-                                ? 'bg-green-600 text-white border-green-600'
-                                : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-                            }`}
-                          >
-                            {cc}
-                          </button>
-                        )
-                      })}
+                      {/* Channel chips */}
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Canales</p>
+                        <div className="flex flex-wrap gap-1">
+                          {FUNNEL_CHANNELS.map(ch => {
+                            const active = stage.channels.includes(ch)
+                            return (
+                              <button
+                                key={ch}
+                                onClick={() => toggleProductChannel(pf.product, stage.key, ch)}
+                                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all border ${
+                                  active
+                                    ? `${meta.color} border-current`
+                                    : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                                }`}
+                              >
+                                {ch}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {stage.percentage > 0 && stage.channels.length === 0 && (
+                          <p className="mt-1 text-[10px] text-amber-600">Selecciona al menos un canal</p>
+                        )}
+                      </div>
+
+                      {/* Conversion channel (only for conversion stage) */}
+                      {stage.key === 'conversion' && (
+                        <div>
+                          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Canal de conversión principal</p>
+                          <div className="flex flex-wrap gap-1">
+                            {CONVERSION_CHANNELS.map(cc => {
+                              const active = stage.conversionChannel === cc
+                              return (
+                                <button
+                                  key={cc}
+                                  onClick={() => updateProductStage(pf.product, 'conversion', { conversionChannel: active ? '' : cc })}
+                                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all border ${
+                                    active
+                                      ? 'bg-green-600 text-white border-green-600'
+                                      : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                                  }`}
+                                >
+                                  {cc}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      <input
+                        type="text"
+                        placeholder={`Notas para ${meta.label.toLowerCase()} (opcional)`}
+                        value={stage.notes ?? ''}
+                        onChange={e => updateProductStage(pf.product, stage.key, { notes: e.target.value })}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
                     </div>
-                  </div>
-                )}
-
-                {/* Notes */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder={`Notas para ${meta.label.toLowerCase()} (opcional)`}
-                    value={stage.notes ?? ''}
-                    onChange={e => updateStage(stage.key, { notes: e.target.value })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                </div>
+                  )
+                })}
               </div>
             )
           })}
 
-          {/* Total validation */}
-          <div className="text-center">
-            {Math.abs(pctTotal - 100) > 1 ? (
-              <p className="text-xs text-amber-600 font-medium">Total: {pctTotal}% — debe sumar exactamente 100%</p>
-            ) : (
-              <p className="text-xs text-green-600 font-medium">✓ Distribución válida · {totalPieces} piezas totales</p>
+          {/* Pieces summary + limit validation */}
+          <div className={`rounded-xl border p-4 space-y-2 ${overLimit ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20' : 'border-border bg-card'}`}>
+            <p className="text-xs font-semibold text-foreground mb-1">Resumen de piezas</p>
+            <div className="space-y-1">
+              {products.map(p => (
+                <div key={p.name} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground truncate">{p.name}</span>
+                  <span className="text-xs font-medium text-foreground ml-2 shrink-0">{PIECES_PER_PRODUCT_STEP1} piezas</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border pt-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground">Total</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${overLimit ? 'text-red-600' : 'text-foreground'}`}>{totalPieces} piezas</span>
+                {pieceLimit !== null && (
+                  <span className="text-xs text-muted-foreground">/ {pieceLimit} incluidas</span>
+                )}
+              </div>
+            </div>
+            {overLimit && pieceLimit !== null && (
+              <p className="text-xs text-red-600 font-medium">
+                Excede el límite por {totalPieces - pieceLimit} pieza{totalPieces - pieceLimit !== 1 ? 's' : ''} — se requerirá solicitar ampliación al generar el plan.
+              </p>
             )}
           </div>
 
           <Button
             onClick={handleGenerateBrief}
-            disabled={generatingBrief}
+            disabled={generatingBrief || !allFunnelsValid}
             className="w-full gap-2"
             size="lg"
           >

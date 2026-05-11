@@ -58,17 +58,21 @@ export async function POST(
     const ePieces = Math.round(piecesCount * ePct / 100)
     const cPieces = piecesCount - pPieces - ePieces
 
-    const stages = dist.stages
-    const stageLines = stages?.length === 3
-      ? [
-          `- Presentación: ${pPieces} piezas (${pPct}%) | Canales: ${stages[0].channels.join(', ') || 'No especificados'}${stages[0].notes ? ` | Notas: ${stages[0].notes}` : ''}`,
-          `- Evaluación: ${ePieces} piezas (${ePct}%) | Canales: ${stages[1].channels.join(', ') || 'No especificados'}${stages[1].notes ? ` | Notas: ${stages[1].notes}` : ''}`,
-          `- Conversión: ${cPieces} piezas (${cPct}%) | Canales: ${stages[2].channels.join(', ') || 'No especificados'}${stages[2].conversionChannel ? ` | Canal de cierre: ${stages[2].conversionChannel}` : ''}${stages[2].notes ? ` | Notas: ${stages[2].notes}` : ''}`,
-        ].join('\n')
+    const productStages = dist.productStages
+    const stageLines = productStages?.length
+      ? productStages.map(pf => {
+          const s = pf.stages
+          return [
+            `**${pf.product}**`,
+            `  Presentación: ${Math.round(piecesCount / (productStages.length) * s[0].percentage / 100)} piezas (${s[0].percentage}%) | Canales: ${s[0].channels.join(', ') || 'No especificados'}${s[0].notes ? ` | Notas: ${s[0].notes}` : ''}`,
+            `  Evaluación: ${Math.round(piecesCount / (productStages.length) * s[1].percentage / 100)} piezas (${s[1].percentage}%) | Canales: ${s[1].channels.join(', ') || 'No especificados'}${s[1].notes ? ` | Notas: ${s[1].notes}` : ''}`,
+            `  Conversión: ${Math.round(piecesCount / (productStages.length) * s[2].percentage / 100)} piezas (${s[2].percentage}%) | Canales: ${s[2].channels.join(', ') || 'No especificados'}${s[2].conversionChannel ? ` | Cierre: ${s[2].conversionChannel}` : ''}`,
+          ].join('\n')
+        }).join('\n\n')
       : `- Presentación: ${pPieces} piezas (${pPct}%)\n- Evaluación: ${ePieces} piezas (${ePct}%)\n- Conversión: ${cPieces} piezas (${cPct}%) | Canales: ${channelMix.join(', ') || 'No especificados'}`
 
-    const channelMixByStage = stages?.length === 3
-      ? stages.flatMap(s => s.channels).filter((v, i, a) => a.indexOf(v) === i)
+    const channelMixByStage = productStages?.length
+      ? [...new Set(productStages.flatMap(pf => pf.stages.flatMap(s => s.channels)))]
       : channelMix
 
     const productsText = plan.products.map((p, idx) => {

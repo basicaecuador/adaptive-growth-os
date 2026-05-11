@@ -90,32 +90,40 @@ export async function POST(
     const mm = String(plan.month).padStart(2, '0')
     const yy = plan.year
 
-    const stageChannels = dist.stages?.length === 3
-      ? {
-          presentacion: dist.stages[0].channels,
-          evaluacion:   dist.stages[1].channels,
-          conversion:   dist.stages[2].channels,
-          conversionChannel: dist.stages[2].conversionChannel ?? null,
-        }
-      : {
-          presentacion: plan.channelMix ?? [],
-          evaluacion:   plan.channelMix ?? [],
-          conversion:   plan.channelMix ?? [],
-          conversionChannel: null,
-        }
+    // Per-product stage channel lookup
+    const productStages = dist.productStages ?? []
 
-    const allChannels = [...new Set([
-      ...stageChannels.presentacion,
-      ...stageChannels.evaluacion,
-      ...stageChannels.conversion,
-    ])]
-    const channelList = allChannels.join(', ') || 'Instagram'
+    function getProductStageChannels(productName: string) {
+      const pf = productStages.find(p => p.product === productName)
+      if (pf?.stages.length === 3) {
+        return {
+          presentacion: pf.stages[0].channels,
+          evaluacion:   pf.stages[1].channels,
+          conversion:   pf.stages[2].channels,
+          conversionChannel: pf.stages[2].conversionChannel ?? null,
+        }
+      }
+      // Fallback: old global stages or channelMix
+      const fallback = plan.channelMix ?? []
+      return { presentacion: fallback, evaluacion: fallback, conversion: fallback, conversionChannel: null }
+    }
 
-    const channelsByStageText = [
-      `Presentación: ${stageChannels.presentacion.join(', ') || 'Cualquier canal'}`,
-      `Evaluación: ${stageChannels.evaluacion.join(', ') || 'Cualquier canal'}`,
-      `Conversión: ${stageChannels.conversion.join(', ') || 'Cualquier canal'}${stageChannels.conversionChannel ? ` (cierre principal: ${stageChannels.conversionChannel})` : ''}`,
-    ].join('\n')
+    const allChannels = [...new Set(
+      productStages.length
+        ? productStages.flatMap(pf => pf.stages.flatMap(s => s.channels))
+        : (plan.channelMix ?? ['Meta'])
+    )]
+    const channelList = allChannels.join(', ') || 'Meta'
+
+    const channelsByProductText = products.map(p => {
+      const sc = getProductStageChannels(p.name)
+      return [
+        `  ${p.name}:`,
+        `    Presentación → ${sc.presentacion.join(', ') || 'cualquier canal'}`,
+        `    Evaluación → ${sc.evaluacion.join(', ') || 'cualquier canal'}`,
+        `    Conversión → ${sc.conversion.join(', ') || 'cualquier canal'}${sc.conversionChannel ? ` | cierre: ${sc.conversionChannel}` : ''}`,
+      ].join('\n')
+    }).join('\n')
 
     const pillars = Array.isArray(brand.puntosClave) && brand.puntosClave.length
       ? brand.puntosClave.join(' · ')
@@ -188,8 +196,8 @@ ${monthName} ${yy} | Fechas clave Ecuador: ${ecuadorDates}
 ═══ BRIEF ESTRATÉGICO DEL MES ═══
 ${plan.strategicBrief ?? ''}
 
-═══ CANALES POR ETAPA (SOLO estos, respetar asignación) ═══
-${channelsByStageText}
+═══ CANALES POR PRODUCTO Y ETAPA (SOLO estos, respetar asignación) ═══
+${channelsByProductText}
 
 Canales totales disponibles: ${channelList}
 
@@ -198,10 +206,11 @@ ${productsDetail}
 
 INSTRUCCIÓN:
 Construye un funnel de contenido ESPECÍFICO para cada producto. NO mezcles productos en una misma pieza.
-Por cada producto genera exactamente ${PIECES_PER_PRODUCT} piezas distribuidas en 3 etapas:
-- presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva. Usa SOLO estos canales: ${stageChannels.presentacion.join(', ') || 'cualquier canal disponible'}.
-- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios. Usa SOLO estos canales: ${stageChannels.evaluacion.join(', ') || 'cualquier canal disponible'}.
-- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera. Usa SOLO estos canales: ${stageChannels.conversion.join(', ') || 'cualquier canal disponible'}.${stageChannels.conversionChannel ? ` El canal de cierre principal es ${stageChannels.conversionChannel} — ajusta los CTAs de conversión a este canal.` : ''}
+Por cada producto genera exactamente ${PIECES_PER_PRODUCT} piezas. Usa la distribución y canales configurados POR PRODUCTO (ver "CANALES POR PRODUCTO Y ETAPA"):
+- presentacion (${counts.presentacion} pieza${counts.presentacion !== 1 ? 's' : ''}, Sem 1-2): Primera toma de contacto — presentar el producto, despertar curiosidad, crear primera impresión positiva.
+- evaluacion (${counts.evaluacion} pieza${counts.evaluacion !== 1 ? 's' : ''}, Sem 2-3): Prospecto en evaluación activa — resolver dudas, mostrar beneficios concretos, prueba social, comparaciones, testimonios.
+- conversion (${counts.conversion} pieza${counts.conversion !== 1 ? 's' : ''}, Sem 3-4): Prospecto listo para actuar — urgencia, última oportunidad, oferta concreta, eliminar última barrera.
+IMPORTANTE: el campo "channel" de cada pieza debe ser SOLO uno de los canales asignados a esa etapa para ese producto.
 
 TOTAL: ${numProducts} producto(s) × ${PIECES_PER_PRODUCT} = ${totalPieces} piezas
 

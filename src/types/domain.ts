@@ -100,6 +100,7 @@ export interface FunnelDistribution {
   evaluacion: number
   conversion: number
   stages?: FunnelStageConfig[]
+  productStages?: { product: string; stages: FunnelStageConfig[] }[]
 }
 
 export interface PlanAudience {
